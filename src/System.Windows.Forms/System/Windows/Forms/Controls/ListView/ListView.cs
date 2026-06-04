@@ -2645,13 +2645,17 @@ public partial class ListView : Control
                     // If OwnerDraw is true, fire the onDrawItem event.
                     if (OwnerDraw)
                     {
+                        ListViewItemStates eventItemState = GetEventState(
+                                                        itemIndex,
+                                                        (ListViewItemStates)nmcd->nmcd.uItemState);
+
                         using Graphics g = nmcd->nmcd.hdc.CreateGraphics();
                         DrawListViewItemEventArgs e = new(
                             g,
                             Items[(int)nmcd->nmcd.dwItemSpec],
                             itemBounds,
                             (int)nmcd->nmcd.dwItemSpec,
-                            (ListViewItemStates)nmcd->nmcd.uItemState);
+                            eventItemState);
 
                         OnDrawItem(e);
 
@@ -2735,6 +2739,10 @@ public partial class ListView : Control
 
                             if (ClientRectangle.IntersectsWith(subItemBounds))
                             {
+                                ListViewItemStates eventItemState = GetEventState(
+                                                        itemIndex,
+                                                        (ListViewItemStates)nmcd->nmcd.uItemState);
+
                                 e = new DrawListViewSubItemEventArgs(
                                     g,
                                     subItemBounds,
@@ -2743,7 +2751,7 @@ public partial class ListView : Control
                                     itemIndex,
                                     nmcd->iSubItem,
                                     _columnHeaders![nmcd->iSubItem],
-                                    (ListViewItemStates)nmcd->nmcd.uItemState);
+                                    eventItemState);
                                 OnDrawSubItem(e);
 
                                 // the customer still wants to draw the default.
@@ -2935,6 +2943,21 @@ public partial class ListView : Control
             Debug.Fail("Exception occurred attempting to setup custom draw. Disabling custom draw for this control", e.ToString());
             m.ResultInternal = (LRESULT)(nint)PInvoke.CDRF_DODEFAULT;
         }
+    }
+
+    private ListViewItemStates GetEventState(int itemIndex, ListViewItemStates nativeState)
+    {
+        // PERF: Only pay for native state query when native claims Selected.
+        if ((nativeState & ListViewItemStates.Selected) != 0)
+        {
+            LIST_VIEW_ITEM_STATE_FLAGS realState = GetItemState(itemIndex);
+            if ((realState & LIST_VIEW_ITEM_STATE_FLAGS.LVIS_SELECTED) == 0)
+            {
+                nativeState &= ~ListViewItemStates.Selected;
+            }
+        }
+
+        return nativeState;
     }
 
     private static void DeleteFileName(string? fileName)
