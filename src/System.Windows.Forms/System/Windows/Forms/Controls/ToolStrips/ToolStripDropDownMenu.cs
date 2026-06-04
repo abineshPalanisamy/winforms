@@ -895,6 +895,79 @@ public partial class ToolStripDropDownMenu : ToolStripDropDown
         DownScrollButton.Enabled = indexOfLastDisplayedItem < lastAvailableItemIndex;
     }
 
+    protected override void WndProc(ref Message m)
+    {
+        if (m.Msg == PInvokeCore.WM_MOUSEWHEEL)
+        {
+            WmMouseWheel(ref m);
+            return;
+        }
+
+        base.WndProc(ref m);
+    }
+
+    private void WmMouseWheel(ref Message m)
+    {
+        nint wParam = (nint)m.WParamInternal;
+        int wheelDelta = unchecked((short)((long)wParam >> 16));
+
+        if (wheelDelta == 0 || Items.Count == 0 || !RequiresScrollButtons)
+        {
+            return;
+        }
+
+        ToolStripItem? firstItem = Items.Cast<ToolStripItem>()
+             .FirstOrDefault(i => i.Available && i.Bounds.Height > 0);
+
+        ToolStripItem? lastItem = Items.Cast<ToolStripItem>()
+            .LastOrDefault(i => i.Available && i.Bounds.Height > 0);
+
+        if (firstItem is null || lastItem is null)
+        {
+            return; // nothing valid to scroll; let base handle
+        }
+
+        Rectangle firstItemBounds = firstItem.Bounds;
+        Rectangle lastItemBounds = lastItem.Bounds;
+
+        int lines = SystemInformation.MouseWheelScrollLines;
+
+        if (lines == 0)
+        {
+            return;
+        }
+
+        int delta = 0;
+
+
+        if (lines == -1)
+        {
+            delta = DisplayRectangle.Height * -Math.Sign(wheelDelta);
+        }
+        else
+        {
+            delta = firstItemBounds.Height * lines * -Math.Sign(wheelDelta);
+        }
+
+
+        if (delta < 0)
+        {
+            delta = Math.Max(delta, firstItemBounds.Top - DisplayRectangle.Top);
+        }
+        else if (delta > 0)
+        {
+            delta = Math.Min(delta, lastItemBounds.Bottom - DisplayRectangle.Bottom);
+        }
+
+        if (delta == 0)
+        {
+            return;
+        }
+
+        ScrollInternal(delta);
+        UpdateScrollButtonLocations();
+    }
+
     /// <summary>
     ///  Returns <see langword="true"/> when <paramref name="itemBounds"/> is entirely
     ///  contained within <paramref name="displayRectangle"/> (no clipping on either edge).
