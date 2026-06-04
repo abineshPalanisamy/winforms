@@ -95,6 +95,23 @@ public sealed partial class Application
 
         internal bool CustomThreadExceptionHandlerAttached => _threadExceptionHandler is not null;
 
+        internal static ThreadContext? Current => t_currentThreadContext;
+
+        internal void OnMainFormChanged(ApplicationContext applicationContext, Form? oldMainForm, Form? newMainForm)
+        {
+            if (!ReferenceEquals(ApplicationContext, applicationContext))
+            {
+                return;
+            }
+
+            // Only update the cached form if it is still tracking the previous MainForm.
+            // This avoids clobbering unrelated state such as a current modal form.
+            if (ReferenceEquals(CurrentForm, oldMainForm))
+            {
+                CurrentForm = newMainForm;
+            }
+        }
+
         /// <summary>
         ///  Retrieves the actual parking form. This will demand create the parking window if it needs to.
         /// </summary>
