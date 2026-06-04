@@ -1863,10 +1863,12 @@ public abstract partial class DataGridViewCell : DataGridViewElement, ICloneable
             throw new InvalidOperationException(SR.DataGridView_CellNeedsDataGridViewForInheritedStyle);
         }
 
-        ArgumentOutOfRangeException.ThrowIfNegative(rowIndex);
-        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(rowIndex, DataGridView.Rows.Count);
+        if (rowIndex < -1 || (rowIndex >= 0 && rowIndex >= DataGridView.Rows.Count))
+        {
+            throw new ArgumentOutOfRangeException(nameof(rowIndex), rowIndex, SR.InvalidArgument);
+        }
 
-        if (ColumnIndex < 0)
+        if (ColumnIndex < -1 || (ColumnIndex >= 0 && ColumnIndex >= DataGridView.Columns.Count))
         {
             throw new InvalidOperationException();
         }
@@ -1898,7 +1900,7 @@ public abstract partial class DataGridViewCell : DataGridViewElement, ICloneable
         }
 
         DataGridViewCellStyle? rowStyle = null;
-        if (DataGridView.Rows.SharedRow(rowIndex).HasDefaultCellStyle)
+        if (rowIndex >= 0 && DataGridView.Rows.SharedRow(rowIndex).HasDefaultCellStyle)
         {
             rowStyle = DataGridView.Rows.SharedRow(rowIndex).DefaultCellStyle;
             Debug.Assert(rowStyle is not null);
