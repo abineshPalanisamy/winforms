@@ -398,6 +398,8 @@ public partial class ToolStripPanelRow
 
                 try
                 {
+                    Point pt = locationToDrag;
+
                     if (Row.ControlsInternal.Count > 0)
                     {
                         // walk through the columns and determine which column you want to insert into.
@@ -409,19 +411,24 @@ public partial class ToolStripPanelRow
                                 continue;
                             }
 
-                            // [:   ]  [: x  ]
-                            if (Row.Cells[index].Bounds.Contains(locationToDrag))
+                            Rectangle bounds = Row.Cells[index].Bounds;
+
+
+                            // Before this cell => insert before
+                            if (pt.X <= bounds.Left)
                             {
                                 break;
                             }
 
-                            // take into account the following scenarios
-                            //  [:   ]  x [:   ]
-                            // x [:  ]    [:   ]
-                            if (Row.Cells[index].Bounds.X >= locationToDrag.X)
+                            // After this cell => check next
+                            if (pt.X >= bounds.Right)
                             {
-                                break;
+                                continue;
                             }
+
+                            // Overlap => treat as after (keep scanning)
+                            continue;
+
                         }
 
                         // Plop the new control in the midst of the row in question.
@@ -446,7 +453,7 @@ public partial class ToolStripPanelRow
                         if (index == 0)
                         {
                             // make sure we account for the left side
-                            requiredSpace += locationToDrag.X;
+                            requiredSpace += pt.X;
                         }
 
                         int freedSpace = 0;
@@ -493,7 +500,7 @@ public partial class ToolStripPanelRow
                             if (nextCell is not null && lastCell is not null)
                             {
                                 Padding lastCellMargin = lastCell.Margin;
-                                lastCellMargin.Left = Math.Max(0, locationToDrag.X - nextCell.Bounds.Right);
+                                lastCellMargin.Left = Math.Max(0, pt.X - nextCell.Bounds.Right);
                                 lastCell.Margin = lastCellMargin;
                                 freedSpace = requiredSpace;
                             }
@@ -540,7 +547,7 @@ public partial class ToolStripPanelRow
                             if (cell is not null)
                             {
                                 Padding cellMargin = cell.Margin;
-                                cellMargin.Left = Math.Max(0, locationToDrag.X - Row.Margin.Left);
+                                cellMargin.Left = Math.Max(0, pt.X - Row.Margin.Left);
                                 cell.Margin = cellMargin;
                             }
                         }
