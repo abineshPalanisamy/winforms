@@ -223,6 +223,218 @@ public partial class DataGridViewHeaderCell : DataGridViewCell
         }
     }
 
+    /// <inheritdoc cref="DataGridViewCell.GetInheritedStyle(DataGridViewCellStyle?, int, bool)"/>
+    /// <remarks>
+    ///  <para>
+    ///   This override handles the case where a <see cref="DataGridViewHeaderCell"/> is used directly as
+    ///   <see cref="DataGridView.TopLeftHeaderCell"/>, which passes <c>rowIndex = -1</c> during auto-sizing
+    ///   (e.g. when <see cref="DataGridView.ColumnHeadersHeightSizeMode"/> is
+    ///   <see cref="DataGridViewColumnHeadersHeightSizeMode.AutoSize"/>). The base
+    ///   <see cref="DataGridViewCell.GetInheritedStyle"/> rejects negative row indices, so this override
+    ///   provides correct behaviour by merging styles from
+    ///   <see cref="DataGridView.ColumnHeadersDefaultCellStyle"/> and
+    ///   <see cref="DataGridView.DefaultCellStyle"/>.
+    ///  </para>
+    /// </remarks>
+    public override DataGridViewCellStyle GetInheritedStyle(DataGridViewCellStyle? inheritedCellStyle, int rowIndex, bool includeColors)
+    {
+        if (DataGridView is null)
+        {
+            throw new InvalidOperationException(SR.DataGridView_CellNeedsDataGridViewForInheritedStyle);
+        }
+
+        ArgumentOutOfRangeException.ThrowIfNotEqual(rowIndex, -1);
+
+        DataGridViewCellStyle inheritedCellStyleTmp = inheritedCellStyle ?? new DataGridViewCellStyle();
+
+        DataGridViewCellStyle? cellStyle = HasStyle ? Style : null;
+
+        DataGridViewCellStyle columnHeadersStyle = DataGridView.ColumnHeadersDefaultCellStyle;
+        Debug.Assert(columnHeadersStyle is not null);
+
+        DataGridViewCellStyle rowHeadersStyle = DataGridView.RowHeadersDefaultCellStyle;
+        Debug.Assert(rowHeadersStyle is not null);
+
+        DataGridViewCellStyle dataGridViewStyle = DataGridView.DefaultCellStyle;
+        Debug.Assert(dataGridViewStyle is not null);
+
+        if (includeColors)
+        {
+            if (cellStyle is not null && !cellStyle.BackColor.IsEmpty)
+            {
+                inheritedCellStyleTmp.BackColor = cellStyle.BackColor;
+            }
+            else if (!columnHeadersStyle.BackColor.IsEmpty)
+            {
+                inheritedCellStyleTmp.BackColor = columnHeadersStyle.BackColor;
+            }
+            else
+            {
+                inheritedCellStyleTmp.BackColor = dataGridViewStyle.BackColor;
+            }
+
+            if (cellStyle is not null && !cellStyle.ForeColor.IsEmpty)
+            {
+                inheritedCellStyleTmp.ForeColor = cellStyle.ForeColor;
+            }
+            else if (!columnHeadersStyle.ForeColor.IsEmpty)
+            {
+                inheritedCellStyleTmp.ForeColor = columnHeadersStyle.ForeColor;
+            }
+            else
+            {
+                inheritedCellStyleTmp.ForeColor = dataGridViewStyle.ForeColor;
+            }
+
+            if (cellStyle is not null && !cellStyle.SelectionBackColor.IsEmpty)
+            {
+                inheritedCellStyleTmp.SelectionBackColor = cellStyle.SelectionBackColor;
+            }
+            else if (!columnHeadersStyle.SelectionBackColor.IsEmpty)
+            {
+                inheritedCellStyleTmp.SelectionBackColor = columnHeadersStyle.SelectionBackColor;
+            }
+            else
+            {
+                inheritedCellStyleTmp.SelectionBackColor = dataGridViewStyle.SelectionBackColor;
+            }
+
+            if (cellStyle is not null && !cellStyle.SelectionForeColor.IsEmpty)
+            {
+                inheritedCellStyleTmp.SelectionForeColor = cellStyle.SelectionForeColor;
+            }
+            else if (!columnHeadersStyle.SelectionForeColor.IsEmpty)
+            {
+                inheritedCellStyleTmp.SelectionForeColor = columnHeadersStyle.SelectionForeColor;
+            }
+            else
+            {
+                inheritedCellStyleTmp.SelectionForeColor = dataGridViewStyle.SelectionForeColor;
+            }
+        }
+
+        if (cellStyle is not null && cellStyle.Font is not null)
+        {
+            inheritedCellStyleTmp.Font = cellStyle.Font;
+        }
+        else if (columnHeadersStyle.Font is not null)
+        {
+            inheritedCellStyleTmp.Font = columnHeadersStyle.Font;
+        }
+        else
+        {
+            inheritedCellStyleTmp.Font = dataGridViewStyle.Font;
+        }
+
+        if (cellStyle is not null && !cellStyle.IsNullValueDefault)
+        {
+            inheritedCellStyleTmp.NullValue = cellStyle.NullValue;
+        }
+        else if (!columnHeadersStyle.IsNullValueDefault)
+        {
+            inheritedCellStyleTmp.NullValue = columnHeadersStyle.NullValue;
+        }
+        else
+        {
+            inheritedCellStyleTmp.NullValue = dataGridViewStyle.NullValue;
+        }
+
+        if (cellStyle is not null && !cellStyle.IsDataSourceNullValueDefault)
+        {
+            inheritedCellStyleTmp.DataSourceNullValue = cellStyle.DataSourceNullValue;
+        }
+        else if (!columnHeadersStyle.IsDataSourceNullValueDefault)
+        {
+            inheritedCellStyleTmp.DataSourceNullValue = columnHeadersStyle.DataSourceNullValue;
+        }
+        else
+        {
+            inheritedCellStyleTmp.DataSourceNullValue = dataGridViewStyle.DataSourceNullValue;
+        }
+
+        if (cellStyle is not null && cellStyle.Format.Length != 0)
+        {
+            inheritedCellStyleTmp.Format = cellStyle.Format;
+        }
+        else if (columnHeadersStyle.Format.Length != 0)
+        {
+            inheritedCellStyleTmp.Format = columnHeadersStyle.Format;
+        }
+        else
+        {
+            inheritedCellStyleTmp.Format = dataGridViewStyle.Format;
+        }
+
+        if (cellStyle is not null && !cellStyle.IsFormatProviderDefault)
+        {
+            inheritedCellStyleTmp.FormatProvider = cellStyle.FormatProvider;
+        }
+        else if (!columnHeadersStyle.IsFormatProviderDefault)
+        {
+            inheritedCellStyleTmp.FormatProvider = columnHeadersStyle.FormatProvider;
+        }
+        else
+        {
+            inheritedCellStyleTmp.FormatProvider = dataGridViewStyle.FormatProvider;
+        }
+
+        if (cellStyle is not null && cellStyle.Alignment != DataGridViewContentAlignment.NotSet)
+        {
+            inheritedCellStyleTmp.AlignmentInternal = cellStyle.Alignment;
+        }
+        else if (columnHeadersStyle.Alignment != DataGridViewContentAlignment.NotSet)
+        {
+            inheritedCellStyleTmp.AlignmentInternal = columnHeadersStyle.Alignment;
+        }
+        else
+        {
+            Debug.Assert(dataGridViewStyle.Alignment != DataGridViewContentAlignment.NotSet);
+            inheritedCellStyleTmp.AlignmentInternal = dataGridViewStyle.Alignment;
+        }
+
+        if (cellStyle is not null && cellStyle.WrapMode != DataGridViewTriState.NotSet)
+        {
+            inheritedCellStyleTmp.WrapModeInternal = cellStyle.WrapMode;
+        }
+        else if (columnHeadersStyle.WrapMode != DataGridViewTriState.NotSet)
+        {
+            inheritedCellStyleTmp.WrapModeInternal = columnHeadersStyle.WrapMode;
+        }
+        else
+        {
+            Debug.Assert(dataGridViewStyle.WrapMode != DataGridViewTriState.NotSet);
+            inheritedCellStyleTmp.WrapModeInternal = dataGridViewStyle.WrapMode;
+        }
+
+        if (cellStyle is not null && cellStyle.Tag is not null)
+        {
+            inheritedCellStyleTmp.Tag = cellStyle.Tag;
+        }
+        else if (columnHeadersStyle.Tag is not null)
+        {
+            inheritedCellStyleTmp.Tag = columnHeadersStyle.Tag;
+        }
+        else
+        {
+            inheritedCellStyleTmp.Tag = dataGridViewStyle.Tag;
+        }
+
+        if (cellStyle is not null && cellStyle.Padding != Padding.Empty)
+        {
+            inheritedCellStyleTmp.PaddingInternal = cellStyle.Padding;
+        }
+        else if (columnHeadersStyle.Padding != Padding.Empty)
+        {
+            inheritedCellStyleTmp.PaddingInternal = columnHeadersStyle.Padding;
+        }
+        else
+        {
+            inheritedCellStyleTmp.PaddingInternal = dataGridViewStyle.Padding;
+        }
+
+        return inheritedCellStyleTmp;
+    }
+
     public override DataGridViewElementStates GetInheritedState(int rowIndex)
     {
         DataGridViewElementStates state = DataGridViewElementStates.ResizableSet | DataGridViewElementStates.ReadOnly;
