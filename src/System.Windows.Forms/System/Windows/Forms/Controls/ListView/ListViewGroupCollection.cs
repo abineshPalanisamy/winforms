@@ -119,6 +119,7 @@ public class ListViewGroupCollection : IList
             return -1;
         }
 
+        ThrowArgumentExceptionIfOtherListView(group);
         CheckListViewItems(group);
         group.ListView = _listView;
         int index = ((IList)List).Add(group);
@@ -244,6 +245,7 @@ public class ListViewGroupCollection : IList
             return;
         }
 
+        ThrowArgumentExceptionIfOtherListView(group);
         CheckListViewItems(group);
         group.ListView = _listView;
         List.Insert(index, group);
@@ -306,6 +308,14 @@ public class ListViewGroupCollection : IList
         if (_listView.VirtualMode)
         {
             throw new InvalidOperationException(SR.ListViewCannotAddGroupsToVirtualListView);
+        }
+    }
+
+    private void ThrowArgumentExceptionIfOtherListView(ListViewGroup group)
+    {
+        if (group.ListView is not null && group.ListView != _listView)
+        {
+            throw new ArgumentException(SR.ListViewGroupBelongsToAnotherListView, nameof(group));
         }
     }
 }
