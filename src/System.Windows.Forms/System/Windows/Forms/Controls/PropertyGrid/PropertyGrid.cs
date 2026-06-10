@@ -3810,6 +3810,55 @@ public partial class PropertyGrid : ContainerControl, IComPropertyBrowser, IProp
         }
     }
 
+    private bool IsPropertyGridOwnedToolStripItem(ToolStripItem item)
+    {
+        return item is PropertyGridToolStripButton
+            || ReferenceEquals(item, _separator1)
+            || ReferenceEquals(item, _separator2);
+    }
+
+    private List<(ToolStripItem Item, int Index)> DetachExternalToolStripItems()
+    {
+        List<(ToolStripItem Item, int Index)> externalItems = [];
+
+        for (int i = _toolStrip.Items.Count - 1; i >= 0; i--)
+        {
+            ToolStripItem item = _toolStrip.Items[i];
+
+            if (!IsPropertyGridOwnedToolStripItem(item))
+            {
+                externalItems.Add((item, i));
+                _toolStrip.Items.RemoveAt(i);
+            }
+        }
+
+        externalItems.Reverse();
+        return externalItems;
+    }
+
+    private void RestoreExternalToolStripItems(List<(ToolStripItem Item, int Index)> externalItems)
+    {
+        foreach ((ToolStripItem item, int index) in externalItems)
+        {
+
+            if (item.IsDisposed)
+            {
+                continue;
+            }
+
+            int insertIndex = Math.Min(index, _toolStrip.Items.Count);
+
+            if (insertIndex < _toolStrip.Items.Count)
+            {
+                _toolStrip.Items.Insert(insertIndex, item);
+            }
+            else
+            {
+                _toolStrip.Items.Add(item);
+            }
+        }
+    }
+
     private void SetupToolbar() => SetupToolbar(fullRebuild: false);
 
     private void SetupToolbar(bool fullRebuild)
@@ -3967,11 +4016,16 @@ public partial class PropertyGrid : ContainerControl, IComPropertyBrowser, IProp
 
         using (SuspendLayoutScope scope = new(_toolStrip))
         {
+            List<(ToolStripItem Item, int Index)> externalItems = DetachExternalToolStripItems();
+
             _toolStrip.Items.Clear();
+
             for (int j = 0; j < buttonList.Count; j++)
             {
                 _toolStrip.Items.Add(buttonList[j]);
             }
+
+            RestoreExternalToolStripItems(externalItems);
         }
 
         if (_tabsDirty)
