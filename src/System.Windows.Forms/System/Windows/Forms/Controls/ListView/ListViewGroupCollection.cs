@@ -122,9 +122,16 @@ public class ListViewGroupCollection : IList
         CheckListViewItems(group);
         group.ListView = _listView;
         int index = ((IList)List).Add(group);
+
         if (_listView.IsHandleCreated)
         {
             _listView.InsertGroupInListView(List.Count, group);
+        }
+
+        AddGroupItemsToListView(group);
+
+        if (_listView.IsHandleCreated)
+        {
             MoveGroupItems(group);
         }
 
@@ -247,9 +254,16 @@ public class ListViewGroupCollection : IList
         CheckListViewItems(group);
         group.ListView = _listView;
         List.Insert(index, group);
+
         if (_listView.IsHandleCreated)
         {
             _listView.InsertGroupInListView(index, group);
+        }
+
+        AddGroupItemsToListView(group);
+
+        if (_listView.IsHandleCreated)
+        {
             MoveGroupItems(group);
         }
     }
@@ -306,6 +320,32 @@ public class ListViewGroupCollection : IList
         if (_listView.VirtualMode)
         {
             throw new InvalidOperationException(SR.ListViewCannotAddGroupsToVirtualListView);
+        }
+    }
+
+    private void AddGroupItemsToListView(ListViewGroup group)
+    {
+        if (group.Items.Count == 0)
+        {
+            return;
+        }
+
+        // Snapshot to avoid modifying the underlying collection during enumeration.
+        ListViewItem[] items = new ListViewItem[group.Items.Count];
+        group.Items.CopyTo(items, 0);
+
+        foreach (ListViewItem item in items)
+        {
+            if (item.ListView is null)
+            {
+                _listView.Items.Add(item);
+            }
+            else
+            {
+                Debug.Assert(
+                    item.ListView == _listView,
+                    "CheckListViewItems should prevent items from belonging to another ListView.");
+            }
         }
     }
 }
