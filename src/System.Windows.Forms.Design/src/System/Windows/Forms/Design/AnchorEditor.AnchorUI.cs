@@ -24,8 +24,6 @@ public sealed partial class AnchorEditor
 
         public AnchorUI()
         {
-            SetStyle(ControlStyles.ApplyThemingImplicitly, true);
-
             _left = new SpringControl(this) { AccessibleRole = AccessibleRole.CheckButton };
             _right = new SpringControl(this) { AccessibleRole = AccessibleRole.CheckButton };
             _top = new SpringControl(this) { AccessibleRole = AccessibleRole.CheckButton };
@@ -33,7 +31,6 @@ public sealed partial class AnchorEditor
             _tabOrder = [_left, _top, _right, _bottom];
 
             InitializeComponent();
-            UpdateThemeColors();
         }
 
         public object? Value { get; private set; }
@@ -68,38 +65,6 @@ public sealed partial class AnchorEditor
             }
 
             return baseVar;
-        }
-
-        private void UpdateThemeColors()
-        {
-            BackColor = SystemColors.Control;
-            ForeColor = SystemColors.ControlText;
-
-            _container.BackColor = SystemColors.Window;
-            _container.ForeColor = SystemColors.WindowText;
-
-            _control.BackColor = SystemColors.Control;
-            _control.ForeColor = SystemColors.ControlText;
-
-            _left.BackColor = BackColor;
-            _left.ForeColor = ForeColor;
-
-            _top.BackColor = BackColor;
-            _top.ForeColor = ForeColor;
-
-            _right.BackColor = BackColor;
-            _right.ForeColor = ForeColor;
-
-            _bottom.BackColor = BackColor;
-            _bottom.ForeColor = ForeColor;
-
-            Invalidate(invalidateChildren: true);
-        }
-
-        protected override void OnSystemColorsChanged(EventArgs e)
-        {
-            base.OnSystemColorsChanged(e);
-            UpdateThemeColors();
         }
 
         internal virtual void InitializeComponent()
@@ -224,22 +189,7 @@ public sealed partial class AnchorEditor
             protected override void OnPaint(PaintEventArgs e)
             {
                 Rectangle rc = ClientRectangle;
-
-                if (Application.IsDarkModeEnabled)
-                {
-                    using var backBrush = BackColor.GetCachedSolidBrushScope();
-                    e.Graphics.FillRectangle(backBrush, rc);
-
-                    rc.Width--;
-                    rc.Height--;
-
-                    using var borderPen = SystemColors.WindowFrame.GetCachedPenScope();
-                    e.Graphics.DrawRectangle(borderPen, rc);
-                }
-                else
-                {
-                    ControlPaint.DrawBorder3D(e.Graphics, rc, Border3DStyle.Sunken);
-                }
+                ControlPaint.DrawBorder3D(e.Graphics, rc, Border3DStyle.Sunken);
             }
         }
 
@@ -255,22 +205,7 @@ public sealed partial class AnchorEditor
             protected override void OnPaint(PaintEventArgs e)
             {
                 Rectangle rc = ClientRectangle;
-
-                if (Application.IsDarkModeEnabled)
-                {
-                    using var backBrush = BackColor.GetCachedSolidBrushScope();
-                    e.Graphics.FillRectangle(backBrush, rc);
-
-                    rc.Width--;
-                    rc.Height--;
-
-                    using var borderPen = SystemColors.WindowFrame.GetCachedPenScope();
-                    e.Graphics.DrawRectangle(borderPen, rc);
-                }
-                else
-                {
-                    ControlPaint.DrawButton(e.Graphics, rc, ButtonState.Normal);
-                }
+                ControlPaint.DrawButton(e.Graphics, rc, ButtonState.Normal);
             }
         }
 
@@ -336,34 +271,6 @@ public sealed partial class AnchorEditor
             protected override void OnPaint(PaintEventArgs e)
             {
                 Rectangle rc = ClientRectangle;
-
-                if (Application.IsDarkModeEnabled)
-                {
-                    Color backColor = _solid ? SystemColors.ControlDark : BackColor;
-
-                    using var backBrush = backColor.GetCachedSolidBrushScope();
-                    e.Graphics.FillRectangle(backBrush, rc);
-
-                    Rectangle borderRectangle = rc;
-                    borderRectangle.Width--;
-                    borderRectangle.Height--;
-
-                    using var borderPen = SystemColors.WindowFrame.GetCachedPenScope();
-                    e.Graphics.DrawRectangle(borderPen, borderRectangle);
-
-                    if (_focused)
-                    {
-                        Rectangle focusRectangle = rc;
-                        focusRectangle.Inflate(-2, -2);
-                        ControlPaint.DrawFocusRectangle(
-                            e.Graphics,
-                            focusRectangle,
-                            SystemColors.ControlText,
-                            backColor);
-                    }
-
-                    return;
-                }
 
                 if (_solid)
                 {
