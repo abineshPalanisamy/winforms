@@ -2195,24 +2195,57 @@ public partial class TreeNode : MarshalByRefObject, ICloneable, ISerializable
 
     internal unsafe void UpdateImage()
     {
-        TreeView tv = TreeView!;
-        if (tv.IsDisposed)
+        TreeView? tv = TreeView;
+        if (tv is null || tv.IsDisposed || !tv.IsHandleCreated || Handle == IntPtr.Zero)
         {
             return;
         }
 
+
+        int imageIndex = GetEffectiveImageIndex(
+            ImageKey,
+            ImageIndex,
+            ImageIndexer.ActualIndex,
+            tv.ImageIndexer.ActualIndex,
+            tv.ImageList);
+
+        int selectedImageIndex = GetEffectiveImageIndex(
+            SelectedImageKey,
+            SelectedImageIndex,
+            SelectedImageIndexer.ActualIndex,
+            tv.SelectedImageIndexer.ActualIndex,
+            tv.ImageList);
+
         TVITEMW item = new()
         {
-            mask = TVITEM_MASK.TVIF_HANDLE | TVITEM_MASK.TVIF_IMAGE,
+            mask = TVITEM_MASK.TVIF_HANDLE | TVITEM_MASK.TVIF_IMAGE | TVITEM_MASK.TVIF_SELECTEDIMAGE,
             hItem = HTREEITEM,
-            iImage = Math.Max(
-                0,
-                tv.ImageList is { } imageList && ImageIndexer.ActualIndex >= imageList.Images.Count
-                    ? imageList.Images.Count - 1
-                    : ImageIndexer.ActualIndex)
+            iImage = imageIndex,
+            iSelectedImage = selectedImageIndex
         };
 
         PInvokeCore.SendMessage(tv, PInvoke.TVM_SETITEMW, 0, ref item);
+    }
+
+    private static int GetEffectiveImageIndex(
+        string imageKey,
+        int imageIndex,
+        int nodeActualIndex,
+        int treeViewActualIndex,
+        ImageList? imageList)
+    {
+        int resolvedIndex = !string.IsNullOrEmpty(imageKey)
+            ? nodeActualIndex
+            : imageIndex == ImageList.Indexer.DefaultIndex
+                ? treeViewActualIndex
+                : nodeActualIndex;
+
+        if (imageList is not null && resolvedIndex >= imageList.Images.Count)
+        {
+            resolvedIndex = imageList.Images.Count - 1;
+        }
+
+        return Math.Max(0, resolvedIndex);
     }
 
     /// <summary>
