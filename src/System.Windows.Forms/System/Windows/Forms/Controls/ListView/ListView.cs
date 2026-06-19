@@ -47,6 +47,8 @@ public partial class ListView : Control
     private static readonly object s_rightToLeftLayoutChangedEvent = new();
     private static readonly object s_groupCollapsedStateChangedEvent = new();
     private static readonly object s_groupTaskLinkClickEvent = new();
+    private static readonly object s_itemMultiStateCheckEvent = new();
+    private static readonly object s_itemMultiStateCheckedEvent = new();
 
     private ItemActivation _activation = ItemActivation.Standard;
     private ListViewAlignment _alignStyle = ListViewAlignment.Top;
@@ -55,6 +57,7 @@ public partial class ListView : Control
     private SortOrder _sorting = SortOrder.None;
     private View _viewStyle = View.LargeIcon;
     private string? _toolTipCaption = string.Empty;
+    private bool _multiStateCheckboxes;
 
     private const int LISTVIEWSTATE_ownerDraw = 0x00000001;
     private const int LISTVIEWSTATE_allowColumnReorder = 0x00000002;
@@ -232,6 +235,33 @@ public partial class ListView : Control
 
         _listItemCollection = new ListViewItemCollection(new ListViewNativeItemCollection(this));
         _columnHeaderCollection = new ColumnHeaderCollection(this);
+    }
+
+    [DefaultValue(false)]
+    public bool MultiStateCheckboxes
+    {
+        get => _multiStateCheckboxes;
+        set
+        {
+            if (_multiStateCheckboxes == value)
+            {
+                return;
+            }
+
+            if (value && CheckBoxes)
+            {
+                throw new InvalidOperationException(
+                    "MultiStateCheckboxes cannot be enabled when CheckBoxes is true.");
+            }
+
+            if (value && StateImageList is null)
+            {
+                throw new InvalidOperationException(
+                    "StateImageList must be assigned before enabling MultiStateCheckboxes.");
+            }
+
+            _multiStateCheckboxes = value;
+        }
     }
 
     /// <summary>
@@ -2080,6 +2110,18 @@ public partial class ListView : Control
     {
         add => _onItemChecked += value;
         remove => _onItemChecked -= value;
+    }
+
+    public event EventHandler<ItemMultiStateCheckEventArgs>? ItemMultiStateCheck
+    {
+        add => Events.AddHandler(s_itemMultiStateCheckEvent, value);
+        remove => Events.RemoveHandler(s_itemMultiStateCheckEvent, value);
+    }
+
+    public event EventHandler<ItemMultiStateCheckedEventArgs>? ItemMultiStateChecked
+    {
+        add => Events.AddHandler(s_itemMultiStateCheckedEvent, value);
+        remove => Events.RemoveHandler(s_itemMultiStateCheckedEvent, value);
     }
 
     [SRCategory(nameof(SR.CatAction))]
@@ -4935,6 +4977,18 @@ public partial class ListView : Control
         ((ListViewVirtualItemsSelectionRangeChangedEventHandler?)Events[s_virtualItemSelectionRangeChangedEvent])?.Invoke(this, e);
     }
 
+    protected virtual void OnItemMultiStateCheck(ItemMultiStateCheckEventArgs e)
+    => ((EventHandler<ItemMultiStateCheckEventArgs>?)Events[s_itemMultiStateCheckEvent])?.Invoke(this, e);
+
+    protected virtual void OnItemMultiStateChecked(ItemMultiStateCheckedEventArgs e)
+        => ((EventHandler<ItemMultiStateCheckedEventArgs>?)Events[s_itemMultiStateCheckedEvent])?.Invoke(this, e);
+
+    private static int GetStateImageIndexZeroBased(uint state)
+    {
+        int oneBased = (int)((state & (uint)LIST_VIEW_ITEM_STATE_FLAGS.LVIS_STATEIMAGEMASK) >> 12);
+        return oneBased <= 0 ? 0 : oneBased - 1;
+    }
+
     private unsafe void PositionHeader()
     {
         HWND headerWindow = PInvoke.GetWindow(this, GET_WINDOW_CMD.GW_CHILD);
@@ -6589,8 +6643,29 @@ public partial class ListView : Control
             case PInvoke.LVN_ITEMCHANGING:
                 {
                     NMLISTVIEW* nmlv = (NMLISTVIEW*)(nint)m.LParamInternal;
+
                     if ((nmlv->uChanged & LIST_VIEW_ITEM_FLAGS.LVIF_STATE) != 0)
                     {
+                        if (MultiStateCheckboxes)
+                        {
+                            uint changedMask = ((uint)nmlv->uOldState ^ (uint)nmlv->uNewState) & (uint)LIST_VIEW_ITEM_STATE_FLAGS.LVIS_STATEIMAGEMASK;
+
+                            if (changedMask != 0)
+                            {
+                                int oldStateImageIndex = GetStateImageIndexZeroBased((uint)nmlv->uOldState);
+                                int newStateImageIndex = GetStateImageIndexZeroBased((uint)nmlv->uNewState);
+
+                                if (oldStateImageIndex != newStateImageIndex)
+                                {
+                                    ItemMultiStateCheckEventArgs e = new(nmlv->iItem, oldStateImageIndex, newStateImageIndex);
+                                    OnItemMultiStateCheck(e);
+                                }
+
+                                break;
+                            }
+                        }
+
+                        // Legacy path - unchanged
                         // Because the state image mask is 1-based, a value of 1 means unchecked,
                         // anything else means checked. We convert this to the more standard 0 or 1
                         CheckState oldState = (CheckState)(((int)((LIST_VIEW_ITEM_STATE_FLAGS)nmlv->uOldState & LIST_VIEW_ITEM_STATE_FLAGS.LVIS_STATEIMAGEMASK) >> 12) == 1 ? 0 : 1);
@@ -6610,15 +6685,36 @@ public partial class ListView : Control
             case PInvoke.LVN_ITEMCHANGED:
                 {
                     NMLISTVIEW* nmlv = (NMLISTVIEW*)(nint)m.LParamInternal;
-                    // Check for state changes to the selected state...
+
+                    // Check for state changes...
                     if ((nmlv->uChanged & LIST_VIEW_ITEM_FLAGS.LVIF_STATE) != 0)
                     {
+                        if (MultiStateCheckboxes)
+                        {
+                            uint changedMask = ((uint)nmlv->uOldState ^ (uint)nmlv->uNewState) & (uint)LIST_VIEW_ITEM_STATE_FLAGS.LVIS_STATEIMAGEMASK;
+
+                            if (changedMask != 0)
+                            {
+                                int oldStateImageIndex = GetStateImageIndexZeroBased((uint)nmlv->uOldState);
+                                int newStateImageIndex = GetStateImageIndexZeroBased((uint)nmlv->uNewState);
+
+                                if (newStateImageIndex != oldStateImageIndex)
+                                {
+                                    OnItemMultiStateChecked(new ItemMultiStateCheckedEventArgs(nmlv->iItem, newStateImageIndex));
+
+                                    AccessibilityNotifyClients(AccessibleEvents.StateChange, nmlv->iItem);
+                                    AccessibilityNotifyClients(AccessibleEvents.NameChange, nmlv->iItem);
+                                }
+                            }
+                        }
+
+                        // Legacy path - unchanged
                         // Because the state image mask is 1-based, a value of 1 means unchecked,
                         // anything else means checked. We convert this to the more standard 0 or 1
                         CheckState oldValue = (CheckState)(((int)((LIST_VIEW_ITEM_STATE_FLAGS)nmlv->uOldState & LIST_VIEW_ITEM_STATE_FLAGS.LVIS_STATEIMAGEMASK) >> 12) == 1 ? 0 : 1);
                         CheckState newValue = (CheckState)(((int)((LIST_VIEW_ITEM_STATE_FLAGS)nmlv->uNewState & LIST_VIEW_ITEM_STATE_FLAGS.LVIS_STATEIMAGEMASK) >> 12) == 1 ? 0 : 1);
 
-                        if (newValue != oldValue)
+                        if (!MultiStateCheckboxes && newValue != oldValue)
                         {
                             ItemCheckedEventArgs e = new(Items[nmlv->iItem]);
                             OnItemChecked(e);
@@ -6676,9 +6772,11 @@ public partial class ListView : Control
 
                                 if (Items.Count > 0)
                                 {
-                                    ListViewItemSelectionChangedEventArgs lvisce = new(Items[nmlv->iItem],
-                                                                                                                             nmlv->iItem,
-                                                                                                                             newState != 0);
+                                    ListViewItemSelectionChangedEventArgs lvisce = new(
+                                        Items[nmlv->iItem],
+                                        nmlv->iItem,
+                                        newState != 0);
+
                                     OnItemSelectionChanged(lvisce);
                                 }
                             }
