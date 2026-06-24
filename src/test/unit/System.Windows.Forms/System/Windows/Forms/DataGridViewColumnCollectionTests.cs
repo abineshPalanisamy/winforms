@@ -553,6 +553,63 @@ public class DataGridViewColumnCollectionTests
         Assert.Throws<InvalidOperationException>(() => control.Columns.Add(column));
     }
 
+    [WinFormsFact]
+    public void DataGridViewColumnCollection_ImplementsGenericEnumerable()
+    {
+        using DataGridView control = new();
+        DataGridViewColumnCollection columns = control.Columns;
+
+        Assert.IsAssignableFrom<IEnumerable<DataGridViewColumn>>(columns);
+    }
+
+    [WinFormsFact]
+    public void DataGridViewColumnCollection_ForEachVar_IsStronglyTyped()
+    {
+        using DataGridView control = new();
+        control.Columns.Add("Id", "Id");
+        control.Columns.Add("Name", "Name");
+
+        int totalIndexes = 0;
+
+        foreach (var column in control.Columns)
+        {
+            totalIndexes += column.Index;
+        }
+
+        Assert.Equal(1, totalIndexes);
+    }
+
+    [WinFormsFact]
+    public void DataGridViewColumnCollection_NonGenericEnumeration_Unchanged()
+    {
+        using DataGridView control = new();
+        control.Columns.Add("Id", "Id");
+        control.Columns.Add("Name", "Name");
+
+        IEnumerable enumerable = control.Columns;
+        ArrayList items = new();
+
+        foreach (object item in enumerable)
+        {
+            items.Add(item);
+        }
+
+        Assert.Equal(2, items.Count);
+        Assert.All(items.Cast<object>(), item => Assert.IsAssignableFrom<DataGridViewColumn>(item));
+    }
+
+    [WinFormsFact]
+    public void DataGridViewColumnCollection_Linq_WorksDirectly()
+    {
+        using DataGridView control = new();
+        control.Columns.Add("Id", "Id");
+        control.Columns.Add("Name", "Name");
+
+        int count = control.Columns.Count(c => c.Index >= 0);
+
+        Assert.Equal(2, count);
+    }
+
     private class SubDataGridView : DataGridView
     {
         public new void OnRowValidating(DataGridViewCellCancelEventArgs e) => base.OnRowValidating(e);

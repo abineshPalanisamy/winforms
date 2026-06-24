@@ -14,7 +14,7 @@ namespace System.Windows.Forms;
 [ListBindable(false)]
 [DesignerSerializer($"System.Windows.Forms.Design.DataGridViewRowCollectionCodeDomSerializer, {Assemblies.SystemDesign}",
     $"System.ComponentModel.Design.Serialization.CodeDomSerializer, {Assemblies.SystemDesign}")]
-public partial class DataGridViewRowCollection : ICollection, IList
+public partial class DataGridViewRowCollection : ICollection, IList, IEnumerable<DataGridViewRow>
 {
 #if DEBUG
     // set to false when the cached row heights are dirty and should not be accessed.
@@ -2480,5 +2480,18 @@ public partial class DataGridViewRowCollection : ICollection, IList
         _cachedRowCountsAccessAllowed = true;
         _cachedRowHeightsAccessAllowed = true;
 #endif
+    }
+    
+    /// <summary>
+    /// Gets a strongly typed enumerator for the rows in the collection.
+    /// </summary>
+    public IEnumerator<DataGridViewRow> GetEnumerator()
+    {
+        IEnumerator enumerator = ((IEnumerable)this).GetEnumerator();
+
+        while (enumerator.MoveNext())
+        {
+            yield return (DataGridViewRow)enumerator.Current!;
+        }
     }
 }

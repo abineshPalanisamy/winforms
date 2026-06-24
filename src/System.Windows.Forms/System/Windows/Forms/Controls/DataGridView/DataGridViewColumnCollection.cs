@@ -12,7 +12,7 @@ namespace System.Windows.Forms;
 ///  <see cref="DataGridView"/> control.
 /// </summary>
 [ListBindable(false)]
-public partial class DataGridViewColumnCollection : BaseCollection, IList
+public partial class DataGridViewColumnCollection : BaseCollection, IList, IEnumerable<DataGridViewColumn>
 {
     private CollectionChangeEventHandler? _onCollectionChanged;
     private readonly List<DataGridViewColumn> _items = [];
@@ -1179,4 +1179,16 @@ public partial class DataGridViewColumnCollection : BaseCollection, IList
     }
 #endif
 
+    /// <summary>
+    /// Gets a strongly typed enumerator for the columns in the collection.
+    /// </summary>
+    public new IEnumerator<DataGridViewColumn> GetEnumerator()
+    {
+        IEnumerator enumerator = base.GetEnumerator();
+
+        while (enumerator.MoveNext())
+        {
+            yield return (DataGridViewColumn)enumerator.Current!;
+        }
+    }
 }
