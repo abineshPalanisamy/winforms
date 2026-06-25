@@ -360,4 +360,15 @@ internal static unsafe class ClipboardCore<TOleServices>
         dataObject.SetFileDropList(filePaths);
         SetData(dataObject, copy: true);
     }
+
+    internal static void SetFileDropList(IEnumerable<string> filePaths)
+    {
+#if NET
+        IComVisibleDataObject dataObject = TOleServices.CreateDataObject();
+#else
+        IComVisibleDataObject dataObject = s_oleServices.CreateDataObject();
+#endif
+        dataObject.SetFileDropList(filePaths);
+        SetData(dataObject, copy: true);
+    }
 }

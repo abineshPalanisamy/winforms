@@ -457,6 +457,15 @@ public static class Clipboard
         ClipboardCore.SetFileDropList(filePaths);
 
     /// <summary>
+    ///  Clears the Clipboard and then adds a collection of file names in the <see cref="DataFormats.FileDrop"/> format.
+    /// </summary>
+    /// <param name="filePaths">
+    ///  A collection of file paths to place on the Clipboard.
+    /// </param>
+    public static void SetFileDropList(IEnumerable<string> filePaths) =>
+        ClipboardCore.SetFileDropList(filePaths);
+
+    /// <summary>
     ///  Clears the Clipboard and then adds an <see cref="Image"/> in the <see cref="DataFormats.Bitmap"/> format.
     /// </summary>
     public static void SetImage(Image image) =>
