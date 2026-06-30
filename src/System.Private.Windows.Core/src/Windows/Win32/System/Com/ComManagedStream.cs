@@ -122,12 +122,29 @@ internal sealed unsafe partial class ComManagedStream : IStream.Interface
         ActualizeVirtualPosition();
 
         Span<byte> buffer = new(pv, checked((int)cb));
-        int read = _dataStream.Read(buffer);
+
+        int totalRead = 0;
+
+        while (totalRead < buffer.Length)
+        {
+            int read = _dataStream.Read(buffer[totalRead..]);
+
+            if (read == 0)
+            {
+                break;
+            }
+
+            totalRead += read;
+        }
 
         if (pcbRead is not null)
-            *pcbRead = (uint)read;
+        {
+            *pcbRead = (uint)totalRead;
+        }
 
-        return HRESULT.S_OK;
+        return totalRead == buffer.Length
+            ? HRESULT.S_OK
+            : HRESULT.S_FALSE;
     }
 
     HRESULT IStream.Interface.Read(void* pv, uint cb, uint* pcbRead)
