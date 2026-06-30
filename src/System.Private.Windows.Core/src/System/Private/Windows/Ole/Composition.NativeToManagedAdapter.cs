@@ -31,6 +31,26 @@ internal unsafe partial class Composition<TOleServices, TNrbfSerializer, TDataFo
     {
         private readonly AgileComPointer<Com.IDataObject> _nativeDataObject;
 
+        private const string FileContentsFormat = "FileContents";
+
+        private static bool IsFileContentsFormat(string format)
+            => string.Equals(format, FileContentsFormat, StringComparison.Ordinal);
+
+        private static bool IsFormatAvailable(
+            Com.IDataObject* dataObject,
+            string format)
+        {
+            Com.FORMATETC formatEtc = new()
+            {
+                cfFormat = (ushort)DataFormatsCore<TDataFormat>.GetOrAddFormat(format).Id,
+                dwAspect = (uint)Com.DVASPECT.DVASPECT_CONTENT,
+                lindex = -1,
+                tymed = (uint)AllowedTymeds
+            };
+
+            return dataObject->QueryGetData(formatEtc) == HRESULT.S_OK;
+        }
+
         public NativeToManagedAdapter(Com.IDataObject* dataObject)
         {
 #if DEBUG
@@ -381,6 +401,14 @@ internal unsafe partial class Composition<TOleServices, TNrbfSerializer, TDataFo
                     // Lastly check to see if the data is an IStream.
                     result = TryGetIStreamData(dataObject, in request, out data);
                 }
+
+                if (!result
+                    && !doNotContinue
+                    && IsFileContentsFormat(request.Format)
+                    && IsFormatAvailable(dataObject, request.Format))
+                {
+                    result = TryGetFileContentsFromFileDrop(dataObject, out data);
+                }
             }
             catch (Exception e) when (!e.IsCriticalException())
             {
@@ -390,6 +418,70 @@ internal unsafe partial class Composition<TOleServices, TNrbfSerializer, TDataFo
             }
 
             return result;
+        }
+
+        private static bool TryGetFileContentsFromFileDrop<T>(
+            Com.IDataObject* dataObject,
+            [NotNullWhen(true)] out T? data)
+        {
+            data = default;
+
+            if (!typeof(T).IsAssignableFrom(typeof(MemoryStream)))
+            {
+                return false;
+            }
+
+            DataRequest fileDropRequest = new()
+            {
+                Format = DataFormatNames.FileDrop,
+                AutoConvert = false,
+                Resolver = null,
+                TypedRequest = false
+            };
+
+            if (!TryGetHGLOBALData(
+                dataObject,
+                in fileDropRequest,
+                out bool doNotContinue,
+                out string[]? files)
+                || doNotContinue
+                || files is null
+                || files.Length == 0
+                || string.IsNullOrEmpty(files[0]))
+            {
+                return false;
+            }
+
+            MemoryStream? stream = null;
+
+            try
+            {
+                using FileStream fileStream = new(
+                    files[0],
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.ReadWrite | FileShare.Delete);
+
+                stream = fileStream.CanSeek && fileStream.Length <= int.MaxValue
+                    ? new MemoryStream((int)fileStream.Length)
+                    : new MemoryStream();
+
+                fileStream.CopyTo(stream);
+                stream.Position = 0;
+
+                data = (T)(object)stream;
+                stream = null;
+                return true;
+            }
+            catch (Exception ex) when (!ex.IsCriticalException())
+            {
+                Debug.WriteLine(ex.ToString());
+                return false;
+            }
+            finally
+            {
+                stream?.Dispose();
+            }
         }
 
         private static bool TryGetHGLOBALData<T>(
