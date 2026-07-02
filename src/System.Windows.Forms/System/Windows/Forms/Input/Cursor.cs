@@ -72,6 +72,12 @@ public sealed class Cursor : IDisposable, ISerializable, IHandle<HICON>, IHandle
     {
         _cursorData = File.ReadAllBytes(fileName);
         _freeHandle = true;
+
+        if (ShouldUseNativeCursorLoader(fileName) && TryLoadCursorFromFile(fileName))
+        {
+            return;
+        }
+
         LoadPicture(
             new ComManagedStream(new MemoryStream(_cursorData)),
             nameof(fileName));
@@ -92,9 +98,9 @@ public sealed class Cursor : IDisposable, ISerializable, IHandle<HICON>, IHandle
     public Cursor(Stream stream)
     {
         ArgumentNullException.ThrowIfNull(stream);
+
         using MemoryStream memoryStream = new();
 
-        // Reset stream position to start, there are no gaurantees it is at the start.
         if (stream.CanSeek)
         {
             stream.Position = 0;
@@ -104,8 +110,13 @@ public sealed class Cursor : IDisposable, ISerializable, IHandle<HICON>, IHandle
         _cursorData = memoryStream.ToArray();
         _freeHandle = true;
 
-        // stream.CopyTo causes both streams to advance. So reset it for LoadPicture.
+        if (TryLoadCursorFromStream(_cursorData))
+        {
+            return;
+        }
+
         memoryStream.Position = 0;
+
         LoadPicture(
             new ComManagedStream(memoryStream),
             nameof(stream));
@@ -237,6 +248,125 @@ public sealed class Cursor : IDisposable, ISerializable, IHandle<HICON>, IHandle
         }
 
         GC.SuppressFinalize(this);
+    }
+
+    private bool TryLoadCursorFromFile(string fileName)
+    {
+        HCURSOR cursor = LoadCursorFromFile(fileName);
+
+        if (cursor.IsNull)
+        {
+            return false;
+        }
+
+        _handle = cursor;
+        return true;
+    }
+
+    private bool TryLoadCursorFromStream(byte[] cursorData)
+    {
+        string? extension = GetNativeCursorExtension(cursorData);
+
+        if (extension is null)
+        {
+            return false;
+        }
+
+        string tempFile = Path.Combine(
+            Path.GetTempPath(),
+            $"{Guid.NewGuid():N}{extension}");
+
+        try
+        {
+            File.WriteAllBytes(tempFile, cursorData);
+
+            HCURSOR cursor = LoadCursorFromFile(tempFile);
+
+            if (cursor.IsNull)
+            {
+                return false;
+            }
+
+            _handle = cursor;
+            return true;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(tempFile);
+            }
+            catch
+            {
+                // Best-effort cleanup.
+            }
+        }
+    }
+
+    private static string? GetNativeCursorExtension(byte[] data)
+    {
+        if (IsCursorFile(data))
+        {
+            return ".cur";
+        }
+
+        if (IsAnimatedCursorFile(data))
+        {
+            return ".ani";
+        }
+
+        return null;
+    }
+
+    private static bool IsCursorFile(byte[] data)
+    {
+        // CUR header:
+        // WORD reserved = 0
+        // WORD type     = 2
+        // WORD count    > 0
+        return data.Length >= 6
+            && BitConverter.ToUInt16(data, 0) == 0
+            && BitConverter.ToUInt16(data, 2) == 2
+            && BitConverter.ToUInt16(data, 4) > 0;
+    }
+
+    private static bool IsAnimatedCursorFile(byte[] data)
+    {
+        // ANI header:
+        // RIFF .... ACON
+        return data.Length >= 12
+            && data[0] == (byte)'R'
+            && data[1] == (byte)'I'
+            && data[2] == (byte)'F'
+            && data[3] == (byte)'F'
+            && data[8] == (byte)'A'
+            && data[9] == (byte)'C'
+            && data[10] == (byte)'O'
+            && data[11] == (byte)'N';
+    }
+
+    private static bool ShouldUseNativeCursorLoader(string fileName)
+    {
+        string extension = Path.GetExtension(fileName);
+
+        return extension.Equals(".cur", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".ani", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static unsafe HCURSOR LoadCursorFromFile(string fileName)
+    {
+        fixed (char* fileNamePtr = fileName)
+        {
+            return PInvoke.LoadCursorFromFile((PCWSTR)fileNamePtr);
+        }
     }
 
     /// <summary>
