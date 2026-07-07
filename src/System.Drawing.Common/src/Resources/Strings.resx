@@ -425,4 +425,7 @@
   <data name="IconCouldNotBeExtracted" xml:space="preserve">
     <value>The file path could not be opened or did not contain valid data.</value>
   </data>
+  <data name="ImageEncoderNotFound" xml:space="preserve">
+    <value>No encoder is available for image format '{0}'</value>
+  </data>
 </root>
