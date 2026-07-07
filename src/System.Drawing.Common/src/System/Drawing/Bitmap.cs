@@ -44,6 +44,15 @@ public sealed unsafe class Bitmap : Image, IPointer<GpBitmap>, IBitmap
         }
 
         ValidateImage((GpImage*)bitmap);
+
+        //// GDI+ loads some 32-bpp BMP files as Format32bppRgb and ignores the alpha byte.
+        //// Preserve BMP alpha only for the non-ICM path to avoid bypassing color management.
+        if (!useIcm && TryCreateBitmapFromBmpWithAlpha(filename, out GpBitmap* bitmapWithAlpha))
+        {
+            PInvokeGdiPlus.GdipDisposeImage((GpImage*)bitmap);
+            bitmap = bitmapWithAlpha;
+        }
+
         SetNativeImage((GpImage*)bitmap);
         GetAnimatedGifRawData(this, filename, dataStream: null);
     }
@@ -510,4 +519,231 @@ public sealed unsafe class Bitmap : Image, IPointer<GpBitmap>, IBitmap
         ConvertFormat(format, DitherType.ErrorDiffusion, PaletteType.Custom, palette, .25f);
     }
 #endif
+
+    private static bool TryCreateBitmapFromBmpWithAlpha(string filename, out GpBitmap* bitmap)
+    {
+        bitmap = null;
+
+        if (!Path.GetExtension(filename).Equals(".bmp", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        byte[] bytes;
+
+        try
+        {
+            bytes = File.ReadAllBytes(filename);
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+
+        if (bytes.Length < 54)
+        {
+            return false;
+        }
+
+        // BMP file signature: 'B' 'M'
+        if (bytes[0] != (byte)'B' || bytes[1] != (byte)'M')
+        {
+            return false;
+        }
+
+        int pixelOffset = ReadInt32LittleEndian(bytes, 10);
+        int dibHeaderSize = ReadInt32LittleEndian(bytes, 14);
+
+        // Supports BITMAPINFOHEADER and newer DIB headers.
+        if (dibHeaderSize < 40)
+        {
+            return false;
+        }
+
+        int width = ReadInt32LittleEndian(bytes, 18);
+        int rawHeight = ReadInt32LittleEndian(bytes, 22);
+        ushort planes = ReadUInt16LittleEndian(bytes, 26);
+        ushort bitsPerPixel = ReadUInt16LittleEndian(bytes, 28);
+        int compression = ReadInt32LittleEndian(bytes, 30);
+
+        const int BI_RGB = 0;
+
+        if (width <= 0 || rawHeight == 0 || rawHeight == int.MinValue)
+        {
+            return false;
+        }
+
+        if (planes != 1 || bitsPerPixel != 32)
+        {
+            return false;
+        }
+
+        // Only handle BI_RGB here. BI_BITFIELDS can have custom channel masks and
+        // should not be treated as BGRA unless the masks are parsed and validated.
+        if (compression != BI_RGB)
+        {
+            return false;
+        }
+
+        int height = Math.Abs(rawHeight);
+        bool topDown = rawHeight < 0;
+
+        int sourceStride;
+        int imageSize;
+
+        try
+        {
+            sourceStride = checked(width * 4);
+            imageSize = checked(sourceStride * height);
+        }
+        catch (OverflowException)
+        {
+            return false;
+        }
+
+        long pixelDataEnd = (long)pixelOffset + imageSize;
+
+        if (pixelOffset < 0 || pixelOffset > bytes.Length || pixelDataEnd > bytes.Length)
+        {
+            return false;
+        }
+
+        if (!HasMeaningfulAlpha(bytes, pixelOffset, width, height, sourceStride))
+        {
+            return false;
+        }
+
+        GpBitmap* targetBitmap;
+
+        Status status = PInvokeGdiPlus.GdipCreateBitmapFromScan0(
+            width,
+            height,
+            0,
+            (int)PixelFormat.Format32bppArgb,
+            null,
+            &targetBitmap);
+
+        if (status != Status.Ok)
+        {
+            return false;
+        }
+
+        GdiPlus.BitmapData bitmapData = default;
+
+        Rect rect = new()
+        {
+            X = 0,
+            Y = 0,
+            Width = width,
+            Height = height
+        };
+
+        status = PInvokeGdiPlus.GdipBitmapLockBits(
+            ref *targetBitmap,
+            in rect,
+            (uint)ImageLockMode.WriteOnly,
+            (int)PixelFormat.Format32bppArgb,
+            ref bitmapData);
+
+        if (status != Status.Ok)
+        {
+            PInvokeGdiPlus.GdipDisposeImage((GpImage*)targetBitmap);
+            return false;
+        }
+
+        try
+        {
+            int destinationStride = Math.Abs(bitmapData.Stride);
+
+            if (destinationStride < sourceStride)
+            {
+                return false;
+            }
+
+            fixed (byte* sourceBase = bytes)
+            {
+                byte* sourcePixels = sourceBase + pixelOffset;
+                byte* destinationPixels = (byte*)bitmapData.Scan0;
+
+                for (int y = 0; y < height; y++)
+                {
+                    int sourceY = topDown ? y : height - 1 - y;
+
+                    byte* sourceRow = sourcePixels + sourceY * sourceStride;
+                    byte* destinationRow = destinationPixels + y * bitmapData.Stride;
+
+                    Buffer.MemoryCopy(
+                        sourceRow,
+                        destinationRow,
+                        destinationStride,
+                        sourceStride);
+                }
+            }
+        }
+        finally
+        {
+            PInvokeGdiPlus.GdipBitmapUnlockBits(ref *targetBitmap, ref bitmapData);
+        }
+
+        bitmap = targetBitmap;
+        return true;
+    }
+
+    private static bool HasMeaningfulAlpha(
+        byte[] bytes,
+        int pixelOffset,
+        int width,
+        int height,
+        int stride)
+    {
+        bool hasTransparentPixel = false;
+        bool hasOpaquePixel = false;
+
+        for (int y = 0; y < height; y++)
+        {
+            int rowOffset = pixelOffset + y * stride;
+
+            for (int x = 0; x < width; x++)
+            {
+                byte alpha = bytes[rowOffset + x * 4 + 3];
+
+                if (alpha == 0)
+                {
+                    hasTransparentPixel = true;
+                }
+                else if (alpha == 255)
+                {
+                    hasOpaquePixel = true;
+                }
+                else
+                {
+                    return true;
+                }
+
+                if (hasTransparentPixel && hasOpaquePixel)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static ushort ReadUInt16LittleEndian(byte[] bytes, int offset)
+    {
+        return (ushort)(bytes[offset] | bytes[offset + 1] << 8);
+    }
+
+    private static int ReadInt32LittleEndian(byte[] bytes, int offset)
+    {
+        return bytes[offset]
+            | bytes[offset + 1] << 8
+            | bytes[offset + 2] << 16
+            | bytes[offset + 3] << 24;
+    }
 }
