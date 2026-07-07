@@ -230,7 +230,8 @@ public abstract unsafe class Image : MarshalByRefObject, IImage, IDisposable, IC
         Guid encoder = format.Encoder;
         if (encoder == Guid.Empty)
         {
-            encoder = ImageCodecInfoHelper.GetEncoderClsid(PInvokeCore.ImageFormatPNG);
+            throw new NotSupportedException(
+                SR.Format(SR.ImageEncoderNotFound, format));
         }
 
         Save(filename, encoder, null);
