@@ -3812,9 +3812,25 @@ public partial class PropertyGrid : ContainerControl, IComPropertyBrowser, IProp
 
     private bool IsPropertyGridOwnedToolStripItem(ToolStripItem item)
     {
-        return item is PropertyGridToolStripButton
-            || ReferenceEquals(item, _separator1)
-            || ReferenceEquals(item, _separator2);
+        if (item == _separator1 || item == _separator2 || item == _viewPropertyPagesButton)
+        {
+            return true;
+        }
+
+        if (_viewSortButtons is not null && Array.IndexOf(_viewSortButtons, item) >= 0)
+        {
+            return true;
+        }
+
+        foreach (TabInfo tabInfo in _tabs)
+        {
+            if (tabInfo.Button == item)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private List<(ToolStripItem Item, int Index)> DetachExternalToolStripItems()
