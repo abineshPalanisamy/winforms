@@ -392,7 +392,26 @@ public static class Clipboard
     {
         SourceGenerated.EnumValidator.Validate(format, nameof(format));
 
-        return GetTypedDataIfAvailable<string>(ConvertToDataFormats(format)) is string text ? text : string.Empty;
+        string dataFormat = ConvertToDataFormats(format);
+
+        // The clipboard OLE proxy may return stale data when the clipboard content changes concurrently
+        // between QueryGetData and GetData calls. Retry by obtaining a fresh proxy via OleGetClipboard
+        // to recover the correct data. This mirrors the retry pattern used in ClipboardCore for OLE operations.
+        for (int retry = 0; retry < 10; retry++)
+        {
+            if (GetTypedDataIfAvailable<string>(dataFormat) is string { Length: > 0 } text)
+            {
+                return text;
+            }
+
+            // Only retry if the clipboard still contains text - it may have been cleared.
+            if (!ContainsData(dataFormat, autoConvert: true))
+            {
+                break;
+            }
+        }
+
+        return string.Empty;
     }
 
     private static T? GetTypedDataIfAvailable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>(string format)

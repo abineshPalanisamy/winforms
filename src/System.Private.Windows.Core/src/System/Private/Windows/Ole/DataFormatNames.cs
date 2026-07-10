@@ -86,7 +86,6 @@ internal static partial class DataFormatNames
                 break;
             case UnicodeText:
                 formats.Add(String);
-                formats.Add(Text);
                 break;
             case String:
                 formats.Add(Text);
@@ -127,7 +126,6 @@ internal static partial class DataFormatNames
                 else if (string.Equals(format, UnicodeText, StringComparison.OrdinalIgnoreCase))
                 {
                     formats.Add(String);
-                    formats.Add(Text);
                 }
                 else if (string.Equals(format, String, StringComparison.OrdinalIgnoreCase))
                 {
