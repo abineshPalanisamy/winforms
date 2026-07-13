@@ -6178,7 +6178,15 @@ public unsafe partial class Control :
         }
         else
         {
-            tme._retVal = tme._method!.DynamicInvoke(tme._args);
+            try
+            {
+                tme._retVal = tme._method!.DynamicInvoke(tme._args);
+            }
+            catch (Reflection.TargetInvocationException ex) when (ex.InnerException is not null)
+            {
+                ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
+                throw;
+            }
         }
     }
 
@@ -6223,7 +6231,7 @@ public unsafe partial class Control :
                         }
                         catch (Exception t)
                         {
-                            current._exception = t.GetBaseException();
+                            current._exception = t;
                         }
                     }
                 }
