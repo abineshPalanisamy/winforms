@@ -4241,6 +4241,148 @@ public partial class PropertyGridTests
         propertyGrid.SelectedGridItem.Should().NotBeNull("SelectedGridItem should be set when properties exist");
     }
 
+    [WinFormsFact]
+    public void PropertyGrid_SetupToolbar_PreservesCustomToolStripButton_OnSystemColorsChanged()
+    {
+        using TestPropertyGrid propertyGrid = new()
+        {
+            SelectedObject = new TestObjects()
+        };
+
+        propertyGrid.CreateControl();
+
+        ToolStrip toolStrip = GetPropertyGridToolStrip(propertyGrid);
+
+        ToolStripButton customButton = new("Custom Button");
+        toolStrip.Items.Add(customButton);
+
+        propertyGrid.RaiseSystemColorsChanged();
+
+        Assert.Contains(customButton, toolStrip.Items.Cast<ToolStripItem>());
+    }
+
+    [WinFormsFact]
+    public void PropertyGrid_SetupToolbar_PreservesCustomToolStripSeparator_OnSystemColorsChanged()
+    {
+        using TestPropertyGrid propertyGrid = new()
+        {
+            SelectedObject = new TestObjects()
+        };
+
+        propertyGrid.CreateControl();
+
+        ToolStrip toolStrip = GetPropertyGridToolStrip(propertyGrid);
+
+        ToolStripSeparator customSeparator = new();
+        toolStrip.Items.Add(customSeparator);
+
+        propertyGrid.RaiseSystemColorsChanged();
+
+        Assert.Contains(customSeparator, toolStrip.Items.Cast<ToolStripItem>());
+    }
+
+    [WinFormsFact]
+    public void PropertyGrid_SetupToolbar_DoesNotDuplicateCustomToolStripItems_AfterRepeatedSystemColorsChanged()
+    {
+        using TestPropertyGrid propertyGrid = new()
+        {
+            SelectedObject = new TestObjects()
+        };
+
+        propertyGrid.CreateControl();
+
+        ToolStrip toolStrip = GetPropertyGridToolStrip(propertyGrid);
+
+        ToolStripButton customButton = new("Custom Button");
+        ToolStripSeparator customSeparator = new();
+
+        toolStrip.Items.Add(customButton);
+        toolStrip.Items.Add(customSeparator);
+
+        propertyGrid.RaiseSystemColorsChanged();
+        propertyGrid.RaiseSystemColorsChanged();
+        propertyGrid.RaiseSystemColorsChanged();
+
+        Assert.Equal(1, toolStrip.Items.Cast<ToolStripItem>().Count(item => ReferenceEquals(item, customButton)));
+        Assert.Equal(1, toolStrip.Items.Cast<ToolStripItem>().Count(item => ReferenceEquals(item, customSeparator)));
+    }
+
+    [WinFormsFact]
+    public void PropertyGrid_SetupToolbar_PreservesCustomToolStripItemPosition_OnSystemColorsChanged()
+    {
+        using TestPropertyGrid propertyGrid = new()
+        {
+            SelectedObject = new TestObjects()
+        };
+
+        propertyGrid.CreateControl();
+
+        ToolStrip toolStrip = GetPropertyGridToolStrip(propertyGrid);
+
+        ToolStripButton customButton = new("Custom Button");
+
+        toolStrip.Items.Insert(0, customButton);
+        int originalIndex = toolStrip.Items.IndexOf(customButton);
+
+        propertyGrid.RaiseSystemColorsChanged();
+
+        Assert.Contains(customButton, toolStrip.Items.Cast<ToolStripItem>());
+        Assert.Equal(originalIndex, toolStrip.Items.IndexOf(customButton));
+    }
+
+    [WinFormsFact]
+    public void PropertyGrid_SetupToolbar_PreservesCustomToolStripItemRelativeOrder_OnSystemColorsChanged()
+    {
+        using TestPropertyGrid propertyGrid = new()
+        {
+            SelectedObject = new TestObjects()
+        };
+
+        propertyGrid.CreateControl();
+
+        ToolStrip toolStrip = GetPropertyGridToolStrip(propertyGrid);
+
+        ToolStripButton firstButton = new("First");
+        ToolStripSeparator separator = new();
+        ToolStripButton secondButton = new("Second");
+
+        toolStrip.Items.Insert(0, firstButton);
+        toolStrip.Items.Insert(Math.Min(2, toolStrip.Items.Count), separator);
+        toolStrip.Items.Add(secondButton);
+
+        propertyGrid.RaiseSystemColorsChanged();
+
+        int firstIndex = toolStrip.Items.IndexOf(firstButton);
+        int separatorIndex = toolStrip.Items.IndexOf(separator);
+        int secondIndex = toolStrip.Items.IndexOf(secondButton);
+
+        Assert.True(firstIndex >= 0);
+        Assert.True(separatorIndex >= 0);
+        Assert.True(secondIndex >= 0);
+
+        Assert.True(firstIndex < separatorIndex);
+        Assert.True(separatorIndex < secondIndex);
+    }
+
+    private sealed class TestPropertyGrid : PropertyGrid
+    {
+        public void RaiseSystemColorsChanged()
+        {
+            OnSystemColorsChanged(EventArgs.Empty);
+        }
+    }
+
+    private sealed class TestObjects
+    {
+        public string Name { get; set; } = "Test";
+        public int Value { get; set; } = 1;
+    }
+
+    private static ToolStrip GetPropertyGridToolStrip(PropertyGrid propertyGrid)
+    {
+        return Assert.Single(propertyGrid.Controls.OfType<ToolStrip>());
+    }
+
     private class ItemTypeDescriptor : CustomTypeDescriptor
     {
         private readonly WeakReference _component;

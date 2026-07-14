@@ -3856,22 +3856,13 @@ public partial class PropertyGrid : ContainerControl, IComPropertyBrowser, IProp
     {
         foreach ((ToolStripItem item, int index) in externalItems)
         {
-
             if (item.IsDisposed)
             {
                 continue;
             }
 
             int insertIndex = Math.Min(index, _toolStrip.Items.Count);
-
-            if (insertIndex < _toolStrip.Items.Count)
-            {
-                _toolStrip.Items.Insert(insertIndex, item);
-            }
-            else
-            {
-                _toolStrip.Items.Add(item);
-            }
+            _toolStrip.Items.Insert(insertIndex, item);
         }
     }
 
@@ -3886,6 +3877,8 @@ public partial class PropertyGrid : ContainerControl, IComPropertyBrowser, IProp
         }
 
         using FreezePaintScope _ = new(this);
+
+        List<(ToolStripItem Item, int Index)> externalItems = DetachExternalToolStripItems();
 
         if (_normalButtonImages is null || fullRebuild)
         {
@@ -4032,8 +4025,6 @@ public partial class PropertyGrid : ContainerControl, IComPropertyBrowser, IProp
 
         using (SuspendLayoutScope scope = new(_toolStrip))
         {
-            List<(ToolStripItem Item, int Index)> externalItems = DetachExternalToolStripItems();
-
             _toolStrip.Items.Clear();
 
             for (int j = 0; j < buttonList.Count; j++)
