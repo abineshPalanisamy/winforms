@@ -19,6 +19,7 @@ public partial class Control
         internal bool _synchronous;
         private ManualResetEvent? _resetEvent;
         private readonly Lock _invokeSyncObject = new();
+        internal string? _originStackTrace;
 
         // Store the execution context associated with the caller thread, and
         // information about which thread actually got the stack applied to it.
@@ -34,7 +35,8 @@ public partial class Control
             Delegate? method,
             object?[]? args,
             bool synchronous,
-            ExecutionContext? executionContext)
+            ExecutionContext? executionContext,
+            string? originStackTrace = null)
         {
             _caller = caller;
             _marshaler = marshaler;
@@ -42,6 +44,7 @@ public partial class Control
             _args = args;
             _synchronous = synchronous;
             _executionContext = executionContext;
+            _originStackTrace = originStackTrace;
         }
 
         public object? AsyncState => null;

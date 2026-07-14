@@ -6223,7 +6223,13 @@ public unsafe partial class Control :
                         }
                         catch (Exception t)
                         {
-                            current._exception = t.GetBaseException();
+                            if (!string.IsNullOrEmpty(current._originStackTrace))
+                            {
+                                t.Data[BeginInvokeOriginStackTraceDataKey]
+                                    = current._originStackTrace;
+                            }
+
+                            current._exception = t;
                         }
                     }
                 }
@@ -6508,13 +6514,21 @@ public unsafe partial class Control :
             executionContext = ExecutionContext.Capture();
         }
 
+        string? originStackTrace = null;
+
+        if (!synchronous && AppContextSwitches.CaptureBeginInvokeOriginStackTrace)
+        {
+            originStackTrace = CaptureBeginInvokeOriginStackTrace();
+        }
+
         ThreadMethodEntry tme = new(
             caller,
             this,
             method,
             args,
             synchronous,
-            executionContext);
+            executionContext,
+            originStackTrace);
 
         lock (this)
         {

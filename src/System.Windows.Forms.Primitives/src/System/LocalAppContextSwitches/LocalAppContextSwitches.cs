@@ -26,6 +26,7 @@ internal static partial class LocalAppContextSwitches
     internal const string EnableMsoComponentManagerSwitchName = "Switch.System.Windows.Forms.EnableMsoComponentManager";
     internal const string TreeNodeCollectionAddRangeRespectsSortOrderSwitchName = "System.Windows.Forms.TreeNodeCollectionAddRangeRespectsSortOrder";
     internal const string MoveTreeViewTextLocationOnePixelSwitchName = "System.Windows.Forms.TreeView.MoveTreeViewTextLocationOnePixel";
+    internal const string CaptureBeginInvokeOriginStackTraceSwitchName = "System.Windows.Forms.CaptureBeginInvokeOriginStackTrace";
 
     private static int s_scaleTopLevelFormMinMaxSizeForDpi;
     private static int s_anchorLayoutV2;
@@ -37,6 +38,7 @@ internal static partial class LocalAppContextSwitches
     private static int s_noClientNotifications;
     private static int s_enableMsoComponentManager;
     private static int s_treeNodeCollectionAddRangeRespectsSortOrder;
+    private static int s_captureBeginInvokeOriginStackTrace;
 
     private static int s_moveTreeViewTextLocationOnePixel;
 
@@ -64,6 +66,11 @@ internal static partial class LocalAppContextSwitches
             return s_targetFrameworkName;
         }
     }
+
+    internal static bool CaptureBeginInvokeOriginStackTrace =>
+    GetCachedSwitchValue(
+        CaptureBeginInvokeOriginStackTraceSwitchName,
+        ref s_captureBeginInvokeOriginStackTrace);
 
     private static bool GetCachedSwitchValue(string switchName, ref int cachedSwitchValue)
     {
