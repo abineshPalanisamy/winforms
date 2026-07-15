@@ -509,4 +509,187 @@ public class CursorTests
         using Cursor cursor = new(2);
         _ = cursor.ToString();
     }
+    
+    [Fact]
+    public void Cursor_Ctor_FileName_Ico_PreservesFirstEntryBehavior()
+    {
+        using TempFileScope iconFile = new(".ico");
+        File.WriteAllBytes(iconFile.FileName, CreateCursorData(
+            idType: 1,
+            new CursorImageEntry(Width: 16, Height: 16),
+            new CursorImageEntry(Width: 32, Height: 32)));
+
+        using Cursor cursor = new(iconFile.FileName);
+
+        Assert.NotEqual(IntPtr.Zero, cursor.Handle);
+        Assert.Equal(new Point(8, 8), cursor.HotSpot);
+    }
+
+    [Fact]
+    public void Cursor_Ctor_Stream_Ico_PreservesFirstEntryBehavior()
+    {
+        byte[] iconData = CreateCursorData(
+            idType: 1,
+            new CursorImageEntry(Width: 16, Height: 16),
+            new CursorImageEntry(Width: 32, Height: 32));
+
+        using MemoryStream stream = new(iconData);
+        using Cursor cursor = new(stream);
+
+        Assert.NotEqual(IntPtr.Zero, cursor.Handle);
+        Assert.Equal(new Point(8, 8), cursor.HotSpot);
+    }
+
+    [Fact]
+    public void Cursor_Ctor_FileName_AlphaCur_PreservesColor()
+    {
+        using TempFileScope cursorFile = new(".cur");
+        File.WriteAllBytes(cursorFile.FileName, CreateCursorData(
+            idType: 2,
+            new CursorImageEntry(Width: 32, Height: 32, HotspotX: 4, HotspotY: 5, HasAlpha: true)));
+
+        using Cursor cursor = new(cursorFile.FileName);
+
+        Assert.NotEqual(IntPtr.Zero, cursor.Handle);
+        Assert.Equal(new Point(4, 5), cursor.HotSpot);
+        AssertCursorDrawsExpectedColor(cursor);
+    }
+
+    private readonly record struct CursorImageEntry(
+    byte Width,
+    byte Height,
+    ushort HotspotX = 0,
+    ushort HotspotY = 0,
+    bool HasAlpha = false);
+
+    private sealed class TempFileScope : IDisposable
+    {
+        public TempFileScope(string extension)
+        {
+            FileName = Path.Combine(
+                Path.GetTempPath(),
+                $"{Guid.NewGuid():N}{extension}");
+        }
+
+        public string FileName { get; }
+
+        public void Dispose()
+        {
+            try
+            {
+                if (File.Exists(FileName))
+                {
+                    File.Delete(FileName);
+                }
+            }
+            catch
+            {
+                // Best-effort cleanup for test files.
+            }
+        }
+    }
+
+    private static byte[] CreateCursorData(ushort idType, params CursorImageEntry[] entries)
+    {
+        using MemoryStream stream = new();
+        using BinaryWriter writer = new(stream);
+
+        writer.Write((ushort)0); // idReserved
+        writer.Write(idType);    // 1 = ICO, 2 = CUR
+        writer.Write((ushort)entries.Length);
+
+        int directorySize = 6 + entries.Length * 16;
+        int imageOffset = directorySize;
+
+        List<byte[]> images = new();
+
+        foreach (CursorImageEntry entry in entries)
+        {
+            byte[] image = CreateBitmapImageData(entry.Width, entry.Height, entry.HasAlpha);
+            images.Add(image);
+
+            writer.Write(entry.Width);
+            writer.Write(entry.Height);
+            writer.Write((byte)0); // bColorCount
+            writer.Write((byte)0); // bReserved
+
+            if (idType == 1)
+            {
+                writer.Write((ushort)1);  // wPlanes
+                writer.Write((ushort)32); // wBitCount
+            }
+            else
+            {
+                writer.Write(entry.HotspotX);
+                writer.Write(entry.HotspotY);
+            }
+
+            writer.Write((uint)image.Length);
+            writer.Write((uint)imageOffset);
+
+            imageOffset += image.Length;
+        }
+
+        foreach (byte[] image in images)
+        {
+            writer.Write(image);
+        }
+
+        return stream.ToArray();
+    }
+
+    private static byte[] CreateBitmapImageData(int width, int height, bool hasAlpha)
+    {
+        using MemoryStream stream = new();
+        using BinaryWriter writer = new(stream);
+
+        int xorStride = width * 4;
+        int andStride = ((width + 31) / 32) * 4;
+        int xorSize = xorStride * height;
+        int andSize = andStride * height;
+
+        writer.Write(40);          // biSize
+        writer.Write(width);       // biWidth
+        writer.Write(height * 2);  // biHeight includes XOR + AND mask
+        writer.Write((ushort)1);   // biPlanes
+        writer.Write((ushort)32);  // biBitCount
+        writer.Write(0);           // biCompression = BI_RGB
+        writer.Write(xorSize);     // biSizeImage
+        writer.Write(0);           // biXPelsPerMeter
+        writer.Write(0);           // biYPelsPerMeter
+        writer.Write(0);           // biClrUsed
+        writer.Write(0);           // biClrImportant
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                byte alpha = hasAlpha && x < width / 2 ? (byte)128 : (byte)255;
+
+                writer.Write((byte)0x20); // Blue
+                writer.Write((byte)0x80); // Green
+                writer.Write((byte)0xF0); // Red
+                writer.Write(alpha);      // Alpha
+            }
+        }
+
+        writer.Write(new byte[andSize]);
+
+        return stream.ToArray();
+    }
+
+    private static void AssertCursorDrawsExpectedColor(Cursor cursor)
+    {
+        using Bitmap bitmap = new(32, 32);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+
+        graphics.Clear(Color.Black);
+        cursor.Draw(graphics, new Rectangle(0, 0, 32, 32));
+
+        Color centerPixel = bitmap.GetPixel(16, 16);
+
+        Assert.True(
+            centerPixel.R >= 200 && centerPixel.G >= 90 && centerPixel.G <= 170 && centerPixel.B <= 80,
+            $"Expected the cursor to preserve the colored alpha image, but got R={centerPixel.R}, G={centerPixel.G}, B={centerPixel.B}, A={centerPixel.A}.");
+    }
 }

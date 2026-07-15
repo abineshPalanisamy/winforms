@@ -1,13 +1,12 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Buffers.Binary;
 using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Design;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
-using Windows.Win32.System.Com;
-using Windows.Win32.System.Ole;
 
 namespace System.Windows.Forms;
 
@@ -73,14 +72,22 @@ public sealed class Cursor : IDisposable, ISerializable, IHandle<HICON>, IHandle
         _cursorData = File.ReadAllBytes(fileName);
         _freeHandle = true;
 
-        if (ShouldUseNativeCursorLoader(fileName) && TryLoadCursorFromFile(fileName))
-        {
-            return;
-        }
+        // Prefer letting the OS load .cur/.ani files directly from the file: it natively understands animated
+        // cursors (which LoadCursorFromResourceData cannot parse at all) and correctly picks the hotspot, without
+        // the manual ICONDIR parsing below. Since a real file already exists on disk, this requires no extra temp
+        // file or memory copy. This is intentionally NOT used for .ico: unlike Windows' own cursor loader, the
+        // legacy OLE IPicture path this replaces always used the *first* image entry in a multi-resolution .ico
+        // file (no size-based matching), and LoadCursorFromFile does its own OS size selection instead, which
+        // would silently change the hotspot/image picked for such files. Fall back to the manual, in-memory
+        // parse for .ico files and for anything the OS loader rejects.
+        string extension = Path.GetExtension(fileName);
+        bool preferNativeLoad = extension.Equals(".cur", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".ani", StringComparison.OrdinalIgnoreCase);
 
-        LoadPicture(
-            new ComManagedStream(new MemoryStream(_cursorData)),
-            nameof(fileName));
+        if (!preferNativeLoad || !TryLoadCursorFromFile(fileName))
+        {
+            LoadCursorFromResourceData(_cursorData, nameof(fileName));
+        }
     }
 
     /// <summary>
@@ -110,16 +117,7 @@ public sealed class Cursor : IDisposable, ISerializable, IHandle<HICON>, IHandle
         _cursorData = memoryStream.ToArray();
         _freeHandle = true;
 
-        if (TryLoadCursorFromStream(_cursorData))
-        {
-            return;
-        }
-
-        memoryStream.Position = 0;
-
-        LoadPicture(
-            new ComManagedStream(memoryStream),
-            nameof(stream));
+        LoadCursorFromResourceData(_cursorData, nameof(stream));
     }
 
     /// <summary>
@@ -248,19 +246,6 @@ public sealed class Cursor : IDisposable, ISerializable, IHandle<HICON>, IHandle
         }
 
         GC.SuppressFinalize(this);
-    }
-
-    private bool TryLoadCursorFromFile(string fileName)
-    {
-        HCURSOR cursor = LoadCursorFromFile(fileName);
-
-        if (cursor.IsNull)
-        {
-            return false;
-        }
-
-        _handle = cursor;
-        return true;
     }
 
     private bool TryLoadCursorFromStream(byte[] cursorData)
@@ -502,67 +487,145 @@ public sealed class Cursor : IDisposable, ISerializable, IHandle<HICON>, IHandle
     /// </summary>
     public static void Hide() => PInvoke.ShowCursor(bShow: false);
 
-    private Size GetIconSize(HICON iconHandle)
+    /// <summary>
+    ///  Attempts to load the cursor directly from <paramref name="fileName"/> using the OS's own cursor loader.
+    /// </summary>
+    /// <returns>
+    ///  <see langword="true"/> if the cursor was loaded successfully; otherwise <see langword="false"/>.
+    /// </returns>
+    private unsafe bool TryLoadCursorFromFile(string fileName)
     {
-        // this code is adapted from Icon.GetIconSize please take this into account when changing this
+        fixed (char* lpFileName = fileName)
+        {
+            HCURSOR cursor = PInvoke.LoadCursorFromFile(lpFileName);
+            if (cursor.IsNull)
+            {
+                return false;
+            }
 
-        using ICONINFO info = PInvokeCore.GetIconInfo(iconHandle);
-        if (!info.hbmColor.IsNull)
-        {
-            PInvokeCore.GetObject(info.hbmColor, out BITMAP bitmap);
-            return new Size(bitmap.bmWidth, bitmap.bmHeight);
-        }
-        else if (!info.hbmMask.IsNull)
-        {
-            PInvokeCore.GetObject(info.hbmMask, out BITMAP bitmap);
-            return new Size(bitmap.bmWidth, bitmap.bmHeight / 2);
-        }
-        else
-        {
-            return Size;
+            _handle = cursor;
+            return true;
         }
     }
 
     /// <summary>
-    ///  Loads a picture from the requested stream.
+    ///  Loads the cursor image directly from the raw <paramref name="cursorData"/> bytes of a .cur or .ico file.
     /// </summary>
-    private unsafe void LoadPicture(IStream.Interface stream, string paramName)
+    /// <remarks>
+    ///  <para>
+    ///   This manually parses the ICONDIR/ICONDIRENTRY structures (the .cur format is identical to .ico,
+    ///   other than <c>idType</c> and the fact that the per-entry <c>wPlanes</c>/<c>wBitCount</c> fields are
+    ///   reused to store the hotspot) and hands the raw resource bytes for the best-matching image directly
+    ///   to <c>PInvoke.CreateIconFromResourceEx</c>. This mirrors <c>Icon.Initialize</c> and, unlike the legacy OLE
+    ///   <c>IPicture</c>/<see cref="PInvokeCore.CopyImage(HANDLE, GDI_IMAGE_TYPE, int, int, IMAGE_FLAGS)"/>
+    ///   pipeline this replaces, correctly preserves the alpha channel of modern 32-bit cursors.
+    ///  </para>
+    /// </remarks>
+    private unsafe void LoadCursorFromResourceData(byte[] cursorData, string paramName)
     {
-        Debug.Assert(stream is not null, "Stream should be validated before this method is called.");
-
         try
         {
-            using ComScope<IPicture> picture = new(null);
-            PInvokeCore.OleCreatePictureIndirect(lpPictDesc: null, IID.Get<IPicture>(), fOwn: true, picture).ThrowOnFailure();
+            SpanReader<byte> reader = new(cursorData);
 
-            using ComScope<IPersistStream> persist = new(null);
-            picture.Value->QueryInterface(IID.Get<IPersistStream>(), persist).ThrowOnFailure();
-
-            using var pStream = ComHelpers.GetComScope<IStream>(stream);
-            persist.Value->Load(pStream);
-            picture.Value->get_Type(out PICTYPE type).ThrowOnFailure();
-
-            if (type == PICTYPE.PICTYPE_ICON)
+            // .cur files use idType 2. Plain .ico files (idType 1) are also historically accepted here (they
+            // were previously loaded via the OLE IPicture/PICTYPE_ICON path) and are treated as icons, getting
+            // an OS-centered hotspot.
+            if (!reader.TryRead(out ICONDIR dir)
+                || dir.idReserved != 0
+                || (dir.idType != 1 && dir.idType != 2)
+                || dir.idCount == 0
+                || !reader.TryRead(dir.idCount, out ReadOnlySpan<ICONDIRENTRY> entries))
             {
-                picture.Value->get_Handle(out OLE_HANDLE oleHandle);
-                HICON cursorHandle = (HICON)oleHandle;
-                Size picSize = ScaleHelper.ScaleToDpi(GetIconSize(cursorHandle), ScaleHelper.InitialSystemDpi);
+                throw new ArgumentException(string.Format(SR.InvalidPictureType, nameof(cursorData), nameof(Cursor)), paramName);
+            }
 
-                _handle = (HCURSOR)PInvokeCore.CopyImage(
-                    (HANDLE)cursorHandle.Value,
-                    GDI_IMAGE_TYPE.IMAGE_CURSOR,
-                    picSize.Width,
-                    picSize.Height,
-                    IMAGE_FLAGS.LR_DEFAULTCOLOR).Value;
+            bool isIcon = dir.idType == 1;
 
-                if (_handle.IsNull)
+            uint bestImageOffset;
+            uint bestBytesInRes;
+            ushort bestHotspotX = 0;
+            ushort bestHotspotY = 0;
+
+            if (isIcon)
+            {
+                // Historically, loading an .ico file as a Cursor went through the OLE IPicture pipeline, which
+                // only ever surfaces the first image in the file (it has no notion of picking a "best" size).
+                // Preserve that behavior for back-compat rather than doing size-based matching like Icon does.
+                ICONDIRENTRY entry = entries[0];
+                bestImageOffset = entry.dwImageOffset;
+                bestBytesInRes = entry.dwBytesInRes;
+            }
+            else
+            {
+                int desiredWidth = PInvokeCore.GetSystemMetrics(SYSTEM_METRICS_INDEX.SM_CXCURSOR);
+                int desiredHeight = PInvokeCore.GetSystemMetrics(SYSTEM_METRICS_INDEX.SM_CYCURSOR);
+
+                bestImageOffset = 0;
+                bestBytesInRes = 0;
+                int bestDelta = int.MaxValue;
+
+                // Cursor files can contain multiple resolutions of the same cursor. Pick the entry whose size
+                // is closest to the system's desired cursor size, same as Windows does when loading cursors.
+                // Note: the wPlanes/wBitCount fields (which hold color plane/bit depth information for icons)
+                // are repurposed by the .cur format to store the hotspot x/y coordinates.
+                foreach (ICONDIRENTRY entry in entries)
                 {
-                    throw new Win32Exception(string.Format(SR.FailedToLoadCursor, Marshal.GetLastWin32Error()));
+                    int entryWidth = entry.bWidth == 0 ? 256 : entry.bWidth;
+                    int entryHeight = entry.bHeight == 0 ? 256 : entry.bHeight;
+                    int delta = Math.Abs(entryWidth - desiredWidth) + Math.Abs(entryHeight - desiredHeight);
+
+                    if (delta < bestDelta)
+                    {
+                        bestDelta = delta;
+                        bestImageOffset = entry.dwImageOffset;
+                        bestBytesInRes = entry.dwBytesInRes;
+                        bestHotspotX = entry.wPlanes;
+                        bestHotspotY = entry.wBitCount;
+                    }
+                }
+            }
+
+            if (bestImageOffset > int.MaxValue || bestBytesInRes > int.MaxValue)
+            {
+                throw new Win32Exception((int)WIN32_ERROR.ERROR_INVALID_PARAMETER);
+            }
+
+            uint endOffset = checked(bestImageOffset + bestBytesInRes);
+            if (endOffset > cursorData.Length)
+            {
+                throw new ArgumentException(string.Format(SR.InvalidPictureType, nameof(cursorData), nameof(Cursor)), paramName);
+            }
+
+            ReadOnlySpan<byte> bestImage = reader.Span.Slice((int)bestImageOffset, (int)bestBytesInRes);
+
+            if (isIcon)
+            {
+                // Icon resource data is passed to CreateIconFromResourceEx as-is; the OS centers the hotspot.
+                fixed (byte* b = bestImage)
+                {
+                    _handle = (HCURSOR)PInvoke.CreateIconFromResourceEx(b, (uint)bestImage.Length, fIcon: true, 0x00030000, 0, 0, 0).Value;
                 }
             }
             else
             {
-                throw new ArgumentException(string.Format(SR.InvalidPictureType, nameof(picture), nameof(Cursor)), paramName);
+                // Unlike icon resource data, cursor resource data passed to CreateIconFromResourceEx must be
+                // prefixed with the hotspot as two little-endian WORDs, which is not part of the .cur file's
+                // per-image data block (the hotspot only lives in the ICONDIRENTRY there). Build that buffer here.
+                using BufferScope<byte> imageBuffer = new(sizeof(ushort) * 2 + (int)bestBytesInRes);
+                Span<byte> imageSpan = imageBuffer.AsSpan();
+                BinaryPrimitives.WriteUInt16LittleEndian(imageSpan, bestHotspotX);
+                BinaryPrimitives.WriteUInt16LittleEndian(imageSpan[2..], bestHotspotY);
+                bestImage.CopyTo(imageSpan[4..]);
+
+                fixed (byte* b = imageBuffer)
+                {
+                    _handle = (HCURSOR)PInvoke.CreateIconFromResourceEx(b, (uint)imageSpan.Length, fIcon: false, 0x00030000, 0, 0, 0).Value;
+                }
+            }
+
+            if (_handle.IsNull)
+            {
+                throw new Win32Exception(string.Format(SR.FailedToLoadCursor, Marshal.GetLastWin32Error()));
             }
         }
         catch (COMException e)

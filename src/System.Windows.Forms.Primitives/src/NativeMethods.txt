@@ -49,6 +49,7 @@ CreateAcceleratorTableW
 CreateActCtx
 CreateBrushIndirect
 CreateHalftonePalette
+CreateIconFromResourceEx
 CreateILockBytesOnHGlobal
 CreateMenu
 CreateOleAdviseHolder
@@ -397,6 +398,7 @@ LIST_VIEW_GROUP_STATE_FLAGS
 LIST_VIEW_ITEM_FLAGS
 LIST_VIEW_ITEM_STATE_FLAGS
 LoadCursor
+LoadCursorFromFileW
 LoadLibraryEx
 LoadTypeLib
 LOCALE_IMEASURE
