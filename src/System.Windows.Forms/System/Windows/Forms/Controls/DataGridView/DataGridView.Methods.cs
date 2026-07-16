@@ -28193,6 +28193,32 @@ public partial class DataGridView
         SortInternal(comparer, dataGridViewColumn: null, ListSortDirection.Ascending);
     }
 
+    /// <summary>
+    ///  Sorts the contents of the <see cref="DataGridView"/> control in ascending or descending order
+    ///  based on the contents of the specified column, and displays the specified sort glyph direction
+    ///  in the column header.
+    /// </summary>
+    public void Sort(
+        DataGridViewColumn dataGridViewColumn,
+        ListSortDirection direction,
+        SortOrder sortGlyphDirection)
+    {
+        SourceGenerated.EnumValidator.Validate(sortGlyphDirection);
+
+        DataGridViewColumn? oldSortedColumn = SortedColumn;
+
+        Sort(dataGridViewColumn, direction);
+
+        if (oldSortedColumn is not null
+            && oldSortedColumn != dataGridViewColumn
+            && oldSortedColumn.DataGridView == this)
+        {
+            oldSortedColumn.HeaderCell.SortGlyphDirection = SortOrder.None;
+        }
+
+        dataGridViewColumn.HeaderCell.SortGlyphDirection = sortGlyphDirection;
+    }
+
     private void SortDataBoundDataGridView_PerformCheck(DataGridViewColumn dataGridViewColumn)
     {
         if (DataConnection?.List is not IBindingList ibl)
