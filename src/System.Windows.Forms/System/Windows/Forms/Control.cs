@@ -513,6 +513,24 @@ public unsafe partial class Control :
     internal bool? DarkModeRequestState { get; set; }
 
     /// <summary>
+    ///  Gets or sets a value indicating whether mouse capture is released on mouse up
+    ///  only when no mouse buttons remain pressed.
+    /// </summary>
+    /// <value>
+    ///  <see langword="true"/> to release mouse capture only when the last pressed
+    ///  mouse button is released; otherwise, <see langword="false"/>.
+    ///  The default is <see langword="false"/>.
+    /// </value>
+    [SRCategory(nameof(SR.CatBehavior))]
+    [DefaultValue(false)]
+    [SRDescription(nameof(SR.ControlOnMouseUpDescr))]
+    public bool RetainCaptureOnMouseUp
+    {
+        get => GetExtendedState(ExtendedStates.RetainCaptureOnMouseUp);
+        set => SetExtendedState(ExtendedStates.RetainCaptureOnMouseUp, value);
+    }
+
+    /// <summary>
     ///  The Accessibility Object for this Control
     /// </summary>
     [Browsable(false)]
@@ -11712,9 +11730,18 @@ public unsafe partial class Control :
             SetState(States.MousePressed, false);
             SetState(States.ValidationCancelled, false);
 
-            // Capture is reset while exiting MouseUp.
-            Capture = false;
+            // Capture is reset while exiting MouseUp unless the control opts into
+            // keeping capture until the last pressed mouse button is released.
+            if (ShouldReleaseMouseCaptureOnMouseUp())
+            {
+                Capture = false;
+            }
         }
+    }
+
+    private bool ShouldReleaseMouseCaptureOnMouseUp()
+    {
+        return !RetainCaptureOnMouseUp || MouseButtons == MouseButtons.None;
     }
 
     /// <summary>

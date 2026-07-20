@@ -68,6 +68,11 @@ public partial class Control
         /// <summary>
         ///  If set, the control is being scaled currently
         /// </summary>
-        CurrentlyBeingScaled = 0x00002000
+        CurrentlyBeingScaled = 0x00002000,
+
+        /// <summary>
+        ///  If set, mouse capture is released on mouse up only when no mouse buttons remain pressed.
+        /// </summary>
+        RetainCaptureOnMouseUp = 0x00004000,
     }
 }
