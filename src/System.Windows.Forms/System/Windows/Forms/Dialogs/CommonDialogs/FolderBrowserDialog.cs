@@ -44,6 +44,15 @@ public sealed class FolderBrowserDialog : CommonDialog
     }
 
     /// <summary>
+    /// Occurs before the dialog navigates to another folder.
+    /// </summary>
+    /// <remarks>
+    /// <para>Set <see cref="CancelEventArgs.Cancel"/> to <see langword="true"/> to prevent navigation.</para>
+    /// </remarks>
+    [SRCategory(nameof(SR.CatBehavior))]
+    public event EventHandler<FolderBrowserDialogFolderChangingEventArgs>? FolderChanging;
+
+    /// <summary>
     ///  Gets or sets a value indicating whether the dialog box adds the folder being selected to the recent list.
     /// </summary>
     [SRCategory(nameof(SR.CatBehavior))]
@@ -283,6 +292,7 @@ public sealed class FolderBrowserDialog : CommonDialog
     private unsafe bool TryRunDialogVista(HWND owner, out bool returnValue)
     {
         IFileOpenDialog* dialog;
+
         try
         {
             // Creating the Vista dialog can fail on Windows Server Core, even if the
@@ -299,10 +309,19 @@ public sealed class FolderBrowserDialog : CommonDialog
             return false;
         }
 
+        uint eventCookie = 0;
+
         try
         {
             SetDialogProperties(dialog);
+
+            using ComScope<IFileDialogEvents> dialogEvents =
+                ComHelpers.GetComScope<IFileDialogEvents>(new VistaDialogEvents(this));
+
+            dialog->Advise(dialogEvents, out eventCookie);
+
             HRESULT hr = dialog->Show(owner);
+
             if (!hr.Succeeded)
             {
                 if (hr == HRESULT.FromWin32(WIN32_ERROR.ERROR_CANCELLED))
@@ -320,6 +339,11 @@ public sealed class FolderBrowserDialog : CommonDialog
         }
         finally
         {
+            if (eventCookie != 0)
+            {
+                dialog->Unadvise(eventCookie);
+            }
+
             dialog->Release();
         }
     }
@@ -523,5 +547,110 @@ public sealed class FolderBrowserDialog : CommonDialog
         }
 
         return 0;
+    }
+
+    private bool OnFolderChanging(string folder)
+    {
+        EventHandler<FolderBrowserDialogFolderChangingEventArgs>? handler = FolderChanging;
+
+        if (handler is null)
+        {
+            return false;
+        }
+
+        FolderBrowserDialogFolderChangingEventArgs e = new(folder);
+        handler(this, e);
+
+        return e.Cancel;
+    }
+
+    private unsafe class VistaDialogEvents : IFileDialogEvents.Interface, IManagedWrapper<IFileDialogEvents>
+    {
+        private readonly FolderBrowserDialog _owner;
+
+        public VistaDialogEvents(FolderBrowserDialog owner)
+        {
+            _owner = owner;
+        }
+
+        public HRESULT OnFileOk(IFileDialog* pfd)
+        {
+            return HRESULT.S_OK;
+        }
+
+        public HRESULT OnFolderChanging(IFileDialog* pfd, IShellItem* psiFolder)
+        {
+            string? folder = GetFileSystemPath(psiFolder);
+
+            if (string.IsNullOrEmpty(folder))
+            {
+                return HRESULT.S_OK;
+            }
+
+            return _owner.OnFolderChanging(folder)
+                ? HRESULT.FromWin32(WIN32_ERROR.ERROR_CANCELLED)
+                : HRESULT.S_OK;
+        }
+
+        public HRESULT OnFolderChange(IFileDialog* pfd)
+        {
+            return HRESULT.E_NOTIMPL;
+        }
+
+        public HRESULT OnSelectionChange(IFileDialog* pfd)
+        {
+            return HRESULT.E_NOTIMPL;
+        }
+
+        public HRESULT OnShareViolation(
+            IFileDialog* pfd,
+            IShellItem* psi,
+            FDE_SHAREVIOLATION_RESPONSE* pResponse)
+        {
+            return HRESULT.E_NOTIMPL;
+        }
+
+        public HRESULT OnTypeChange(IFileDialog* pfd)
+        {
+            return HRESULT.E_NOTIMPL;
+        }
+
+        public HRESULT OnOverwrite(
+            IFileDialog* pfd,
+            IShellItem* psi,
+            FDE_OVERWRITE_RESPONSE* pResponse)
+        {
+            return HRESULT.E_NOTIMPL;
+        }
+    }
+
+    private static unsafe string? GetFileSystemPath(IShellItem* shellItem)
+    {
+        if (shellItem is null)
+        {
+            return null;
+        }
+
+        PWSTR path = default;
+
+        try
+        {
+            shellItem->GetDisplayName(SIGDN.SIGDN_FILESYSPATH, &path);
+
+            return path.Value is null
+                ? null
+                : path.ToString();
+        }
+        catch (COMException)
+        {
+            return null;
+        }
+        finally
+        {
+            if (path.Value is not null)
+            {
+                Marshal.FreeCoTaskMem((nint)path.Value);
+            }
+        }
     }
 }

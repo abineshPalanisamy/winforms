@@ -1,0 +1,4 @@
+System.Windows.Forms.FolderBrowserDialog.FolderChanging -> System.EventHandler<System.Windows.Forms.FolderBrowserDialogFolderChangingEventArgs!>?
+System.Windows.Forms.FolderBrowserDialogFolderChangingEventArgs
+System.Windows.Forms.FolderBrowserDialogFolderChangingEventArgs.Folder.get -> string!
+System.Windows.Forms.FolderBrowserDialogFolderChangingEventArgs.FolderBrowserDialogFolderChangingEventArgs(string! folder) -> void
