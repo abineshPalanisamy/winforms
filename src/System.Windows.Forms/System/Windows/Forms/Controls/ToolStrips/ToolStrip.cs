@@ -4726,6 +4726,21 @@ public partial class ToolStrip : ScrollableControl, IArrangedElement, ISupportTo
     internal void OnItemRemovedInternal(ToolStripItem item)
     {
         KeyboardToolTipStateMachine.Instance.Unhook(item, ToolTip);
+
+        RemoveItemFromCachedCollections(item);
+    }
+
+    private void RemoveItemFromCachedCollections(ToolStripItem item)
+    {
+        if (_displayedItems is not null && _displayedItems.Contains(item))
+        {
+            _displayedItems.Remove(item);
+        }
+
+        if (_overflowItems is not null && _overflowItems.Contains(item))
+        {
+            _overflowItems.Remove(item);
+        }
     }
 
     internal override bool AllowsChildrenToShowToolTips()
