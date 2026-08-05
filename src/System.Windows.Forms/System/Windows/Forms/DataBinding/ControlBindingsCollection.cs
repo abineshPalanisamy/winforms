@@ -159,6 +159,34 @@ public class ControlBindingsCollection : BindingsCollection
         return binding;
     }
 
+    public Binding Add(
+        string propertyName,
+        object dataSource,
+        string? dataMember,
+        bool formattingEnabled,
+        DataSourceUpdateMode updateMode,
+        object? nullValue,
+        string formatString,
+        IFormatProvider? formatInfo,
+        bool invokeControl)
+    {
+        ArgumentNullException.ThrowIfNull(dataSource);
+
+        Binding binding = new(
+            propertyName,
+            dataSource,
+            dataMember,
+            formattingEnabled,
+            updateMode,
+            nullValue,
+            formatString,
+            formatInfo,
+            invokeControl);
+
+        Add(binding);
+        return binding;
+    }
+
     /// <summary>
     ///  Creates the binding and adds it to the collection. An InvalidBindingException is
     ///  thrown if this binding can't be constructed. An exception is thrown if a binding to

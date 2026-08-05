@@ -43,6 +43,7 @@ public partial class Binding
     // binding stuff
     private ControlUpdateMode _controlUpdateMode = ControlUpdateMode.OnPropertyChanged;
     private BindingCompleteEventHandler? _onComplete;
+    private bool _invokeControl;
 
     /// <summary>
     ///  Initializes a new instance of the <see cref="Binding"/> class
@@ -159,6 +160,29 @@ public partial class Binding
         CheckBinding();
     }
 
+    public Binding(
+        string propertyName,
+        object? dataSource,
+        string? dataMember,
+        bool formattingEnabled,
+        DataSourceUpdateMode dataSourceUpdateMode,
+        object? nullValue,
+        string formatString,
+        IFormatProvider? formatInfo,
+        bool invokeControl)
+        : this(
+            propertyName,
+            dataSource,
+            dataMember,
+            formattingEnabled,
+            dataSourceUpdateMode,
+            nullValue,
+            formatString,
+            formatInfo)
+    {
+        InvokeControl = invokeControl;
+    }
+
     public object? DataSource { get; }
 
     public BindingMemberInfo BindingMemberInfo { get; }
@@ -168,6 +192,23 @@ public partial class Binding
     /// </summary>
     [DefaultValue(null)]
     public IBindableComponent? BindableComponent { get; private set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether control property updates should be
+    /// marshaled to the owning control's UI thread when required.
+    /// </summary>
+    /// <remarks>
+    /// <para>The default value is <see langword="false"/> to preserve existing behavior.
+    /// When set to <see langword="true"/>, updates from the data source to the bound
+    /// control property are executed through <see cref="Control.Invoke(Action)"/>
+    /// if the target control requires marshaling.</para>
+    /// </remarks>
+    [DefaultValue(false)]
+    public bool InvokeControl
+    {
+        get => _invokeControl;
+        set => _invokeControl = value;
+    }
 
     /// <summary>
     ///  Gets the control to which the binding belongs.
@@ -1046,29 +1087,77 @@ public partial class Binding
             {
                 if (_propIsNullInfo is not null)
                 {
-                    _propIsNullInfo.SetValue(BindableComponent, true);
+                    SetPropValue(_propIsNullInfo, BindableComponent!, true);
                 }
                 else if (_propInfo is not null)
                 {
                     if (_propInfo.PropertyType == typeof(object))
                     {
-                        _propInfo.SetValue(BindableComponent, DataSourceNullValue);
+                        SetPropValue(_propInfo, BindableComponent!, DataSourceNullValue);
                     }
                     else
                     {
-                        _propInfo.SetValue(BindableComponent, null);
+                        SetPropValue(_propInfo, BindableComponent!, null);
                     }
                 }
             }
             else
             {
-                _propInfo!.SetValue(BindableComponent, value);
+                SetPropValue(_propInfo, BindableComponent!, value);
             }
         }
         finally
         {
             _state.ChangeFlags(BindingStates.InSetPropValue, false);
         }
+    }
+
+    private void SetPropValue(PropertyDescriptor? property, IBindableComponent component, object? value)
+    {
+        if (property is null)
+        {
+            return;
+        }
+
+        void SetValue()
+        {
+            property.SetValue(component, value);
+        }
+
+        if (ShouldInvokeControl())
+        {
+            Control!.Invoke((Action)SetValue);
+            return;
+        }
+
+        SetValue();
+    }
+
+    private bool ShouldInvokeControl()
+    {
+        if (!InvokeControl)
+        {
+            return false;
+        }
+
+        Control? control = Control;
+
+        if (control is null)
+        {
+            return false;
+        }
+
+        if (control.IsDisposed)
+        {
+            return false;
+        }
+
+        if (!control.IsHandleCreated)
+        {
+            return false;
+        }
+
+        return control.InvokeRequired;
     }
 
     private bool ShouldSerializeFormatString() => !string.IsNullOrEmpty(_formatString);

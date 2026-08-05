@@ -1,6 +1,10 @@
 #nullable enable
 static System.Windows.Forms.Application.SystemVisualSettings.get -> System.Windows.Forms.SystemVisualSettings!
 static System.Windows.Forms.Application.SystemVisualSettingsChanged -> System.Windows.Forms.SystemVisualSettingsChangedEventHandler?
+System.Windows.Forms.Binding.Binding(string! propertyName, object? dataSource, string? dataMember, bool formattingEnabled, System.Windows.Forms.DataSourceUpdateMode dataSourceUpdateMode, object? nullValue, string! formatString, System.IFormatProvider? formatInfo, bool invokeControl) -> void
+System.Windows.Forms.Binding.InvokeControl.get -> bool
+System.Windows.Forms.Binding.InvokeControl.set -> void
+System.Windows.Forms.ControlBindingsCollection.Add(string! propertyName, object! dataSource, string? dataMember, bool formattingEnabled, System.Windows.Forms.DataSourceUpdateMode updateMode, object? nullValue, string! formatString, System.IFormatProvider? formatInfo, bool invokeControl) -> System.Windows.Forms.Binding!
 System.Windows.Forms.PropertyGrid.VisualStylesModeChanged -> System.EventHandler?
 virtual System.Windows.Forms.Control.OnSystemVisualSettingsChanged(System.Windows.Forms.SystemVisualSettingsChangedEventArgs! e) -> void
 System.Windows.Forms.Control.SystemVisualSettingsChanged -> System.Windows.Forms.SystemVisualSettingsChangedEventHandler?
