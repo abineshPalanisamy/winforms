@@ -18,7 +18,7 @@ public partial class ColorEditor_CustomColorDialogTests
     [WinFormsFact]
     public void CustomColorDialog_Ctor_Default()
     {
-        Type? typeCustomColorDialog = typeof(ColorEditor).Assembly.GetTypes().SingleOrDefault(t => t.Name == "CustomColorDialog");
+        var typeCustomColorDialog = typeof(ColorEditor).Assembly.GetTypes().SingleOrDefault(t => t.Name == "CustomColorDialog");
         Assert.NotNull(typeCustomColorDialog);
 
         using ColorDialog dialog = (ColorDialog)Activator.CreateInstance(typeCustomColorDialog!)!;
@@ -59,7 +59,7 @@ public partial class ColorEditor_CustomColorDialogTests
         Type customColorDialogType = GetCustomColorDialogType();
         FieldInfo resourceNameField = customColorDialogType.GetField("s_resourceName", BindingFlags.NonPublic | BindingFlags.Static);
 
-        if (resourceNameField is not null)
+        if (resourceNameField is { })
         {
             object resourceName = resourceNameField.GetValue(null);
             Assert.NotNull(resourceName);
@@ -80,10 +80,10 @@ public partial class ColorEditor_CustomColorDialogTests
     public void CustomColorDialog_InstanceProperty_ReturnsIntPtr()
     {
         Type customColorDialogType = GetCustomColorDialogType();
-        PropertyInfo instanceProperty = customColorDialogType.GetProperty("Instance", 
+        PropertyInfo instanceProperty = customColorDialogType.GetProperty("Instance",
             BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.IgnoreCase);
 
-        if (instanceProperty is not null)
+        if (instanceProperty is { })
         {
             object instance = Activator.CreateInstance(customColorDialogType);
             object instanceValue = instanceProperty.GetValue(instance);
@@ -100,7 +100,7 @@ public partial class ColorEditor_CustomColorDialogTests
         PropertyInfo optionsProperty = customColorDialogType.GetProperty("Options",
             BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.IgnoreCase);
 
-        if (optionsProperty is not null)
+        if (optionsProperty is { })
         {
             object instance = Activator.CreateInstance(customColorDialogType);
             object optionsValue = optionsProperty.GetValue(instance);
@@ -121,7 +121,7 @@ public partial class ColorEditor_CustomColorDialogTests
         object instance = Activator.CreateInstance(customColorDialogType);
         IDisposable disposable = instance as IDisposable;
 
-        if (disposable is not null)
+        if (disposable is { })
         {
             // Should not throw
             disposable.Dispose();
@@ -176,14 +176,14 @@ public partial class ColorEditor_CustomColorDialogTests
         MethodInfo disposeMethod = customColorDialogType.GetMethod("Dispose",
             BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.IgnoreCase,
             null,
-            new[] { typeof(bool) },
+            [ typeof(bool) ],
             null);
 
         Assert.NotNull(disposeMethod);
-        if (disposeMethod is not null && instance is not null)
+        if (disposeMethod is { } && instance is { })
         {
             // Should not throw
-            disposeMethod.Invoke(instance, new object[] { true });
+            disposeMethod.Invoke(instance, [true]);
         }
     }
 
@@ -194,7 +194,7 @@ public partial class ColorEditor_CustomColorDialogTests
         MethodInfo disposeMethod = customColorDialogType.GetMethod("Dispose",
             BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.IgnoreCase,
             null,
-            new[] { typeof(bool) },
+            [ typeof(bool) ],
             null);
 
         // Should have overridden Dispose(bool) method
@@ -210,15 +210,15 @@ public partial class ColorEditor_CustomColorDialogTests
         MethodInfo disposeMethod = customColorDialogType.GetMethod("Dispose",
             BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.IgnoreCase,
             null,
-            new[] { typeof(bool) },
+            [ typeof(bool) ],
             null);
 
         Assert.NotNull(disposeMethod);
-        if (disposeMethod is not null && instance is not null)
+        if (disposeMethod is { } && instance is { })
         {
             // Calling dispose twice should be safe (idempotent)
-            disposeMethod.Invoke(instance, new object[] { true });
-            disposeMethod.Invoke(instance, new object[] { true });
+            disposeMethod.Invoke(instance, [true]);
+            disposeMethod.Invoke(instance, [true]);
         }
     }
 
@@ -230,7 +230,7 @@ public partial class ColorEditor_CustomColorDialogTests
             BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.IgnoreCase);
 
         Assert.NotNull(instanceProperty);
-        if (instanceProperty is not null)
+        if (instanceProperty is { })
         {
             object instance = Activator.CreateInstance(customColorDialogType);
             object instanceValue = instanceProperty.GetValue(instance);
@@ -248,7 +248,7 @@ public partial class ColorEditor_CustomColorDialogTests
             BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.IgnoreCase);
 
         Assert.NotNull(optionsProperty);
-        if (optionsProperty is not null)
+        if (optionsProperty is { })
         {
             object instance = Activator.CreateInstance(customColorDialogType);
             int optionsValue = Assert.IsType<int>(optionsProperty.GetValue(instance));
@@ -269,22 +269,22 @@ public partial class ColorEditor_CustomColorDialogTests
         MethodInfo disposeMethod = customColorDialogType.GetMethod("Dispose",
             BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.IgnoreCase,
             null,
-            new[] { typeof(bool) },
+            [ typeof(bool) ],
             null);
 
         Assert.NotNull(disposeMethod);
         Assert.NotNull(instanceProperty);
-        if (disposeMethod is not null && instanceProperty is not null && instance is not null)
+        if (disposeMethod is { } && instanceProperty is { } && instance is { })
         {
             // Dispose the dialog
-            disposeMethod.Invoke(instance, new object[] { true });
+            disposeMethod.Invoke(instance, [true]);
 
             // After dispose, the internal _hInstance should be IntPtr.Zero
             FieldInfo hInstanceField = customColorDialogType.GetField("_hInstance",
                 BindingFlags.NonPublic | BindingFlags.Instance);
-            if (hInstanceField is not null)
+            if (hInstanceField is { })
             {
-                object? handleValue = hInstanceField.GetValue(instance);
+                var handleValue = hInstanceField.GetValue(instance);
                 Assert.Equal(IntPtr.Zero, Assert.IsType<IntPtr>(handleValue));
             }
         }

@@ -193,7 +193,7 @@ public class ColorEditorAdvancedTests
             .Setup(e => e.DropDownControl(It.IsAny<Control>()))
             .Verifiable();
 
-        object[] testValues = new object[] { null, Color.Red, "string", 123, new object() };
+        object[] testValues = [null, Color.Red, "string", 123, new object()];
 
         foreach (object testValue in testValues)
         {

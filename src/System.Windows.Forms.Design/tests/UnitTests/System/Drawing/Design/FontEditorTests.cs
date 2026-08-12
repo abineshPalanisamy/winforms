@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 #nullable disable
@@ -61,7 +61,7 @@ public class FontEditorTests
         FontEditor editor = new();
         FieldInfo field = typeof(FontEditor).GetField("_fontDialog",
             BindingFlags.NonPublic | BindingFlags.Instance)!;
-        object? value = field.GetValue(editor);
+        object value = field.GetValue(editor);
         Assert.Null(value);
     }
 
@@ -75,7 +75,7 @@ public class FontEditorTests
 
         FieldInfo field = typeof(FontEditor).GetField("_fontDialog",
             BindingFlags.NonPublic | BindingFlags.Instance)!;
-        object? value = field.GetValue(editor);
+        object value = field.GetValue(editor);
         Assert.Null(value);
     }
 
@@ -101,8 +101,10 @@ public class FontEditorTests
             {
                 // The dialog is expected to be cancelled / aborted by the test runner.
             }
-        });
-        thread.IsBackground = true;
+        })
+        {
+            IsBackground = true
+        };
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
 
@@ -131,8 +133,10 @@ public class FontEditorTests
             catch
             {
             }
-        });
-        thread.IsBackground = true;
+        })
+        {
+            IsBackground = true
+        };
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
 
@@ -160,8 +164,10 @@ public class FontEditorTests
             catch
             {
             }
-        });
-        thread.IsBackground = true;
+        })
+        {
+            IsBackground = true
+        };
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
 
@@ -190,8 +196,10 @@ public class FontEditorTests
             catch
             {
             }
-        });
-        thread.IsBackground = true;
+        })
+        {
+            IsBackground = true
+        };
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
 
@@ -230,24 +238,28 @@ public class FontEditorTests
             }
         }
 
-        Thread thread1 = new(InvokeEdit);
-        thread1.IsBackground = true;
+        Thread thread1 = new(InvokeEdit)
+        {
+            IsBackground = true
+        };
         thread1.SetApartmentState(ApartmentState.STA);
         thread1.Start();
         thread1.Join(TimeSpan.FromSeconds(2));
 
         FieldInfo field = typeof(FontEditor).GetField("_fontDialog",
             BindingFlags.NonPublic | BindingFlags.Instance)!;
-        object? firstDialog = field.GetValue(editor);
+        object firstDialog = field.GetValue(editor);
         Assert.NotNull(firstDialog);
 
-        Thread thread2 = new(InvokeEdit);
-        thread2.IsBackground = true;
+        Thread thread2 = new(InvokeEdit)
+        {
+            IsBackground = true
+        };
         thread2.SetApartmentState(ApartmentState.STA);
         thread2.Start();
         thread2.Join(TimeSpan.FromSeconds(2));
 
-        object? secondDialog = field.GetValue(editor);
+        object secondDialog = field.GetValue(editor);
         Assert.NotNull(secondDialog);
         Assert.Same(firstDialog, secondDialog);
     }

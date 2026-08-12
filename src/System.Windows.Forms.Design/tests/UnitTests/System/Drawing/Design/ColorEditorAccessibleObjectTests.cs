@@ -34,7 +34,7 @@ public class ColorEditorAccessibleObjectTests
     public void ColorPaletteAccessibleObject_HasGetChildCountMethod()
     {
         Type type = GetColorPaletteAccessibleObjectType();
-        MethodInfo? method = type.GetMethod("GetChildCount", BindingFlags.Public | BindingFlags.Instance);
+        var method = type.GetMethod("GetChildCount", BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(method);
     }
 
@@ -42,7 +42,7 @@ public class ColorEditorAccessibleObjectTests
     public void ColorPaletteAccessibleObject_HasGetChildMethod()
     {
         Type type = GetColorPaletteAccessibleObjectType();
-        MethodInfo? method = type.GetMethod("GetChild", BindingFlags.Public | BindingFlags.Instance);
+        var method = type.GetMethod("GetChild", BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(method);
     }
 
@@ -50,7 +50,7 @@ public class ColorEditorAccessibleObjectTests
     public void ColorPaletteAccessibleObject_HasHitTestMethod()
     {
         Type type = GetColorPaletteAccessibleObjectType();
-        MethodInfo? method = type.GetMethod("HitTest", BindingFlags.Public | BindingFlags.Instance);
+        var method = type.GetMethod("HitTest", BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(method);
     }
 
@@ -58,7 +58,7 @@ public class ColorEditorAccessibleObjectTests
     public void ColorPaletteAccessibleObject_HasColorPaletteProperty()
     {
         Type type = GetColorPaletteAccessibleObjectType();
-        PropertyInfo? property = type.GetProperty("ColorPalette", BindingFlags.NonPublic | BindingFlags.Instance);
+        var property = type.GetProperty("ColorPalette", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(property);
     }
 
@@ -66,10 +66,10 @@ public class ColorEditorAccessibleObjectTests
     public void ColorPaletteAccessibleObject_Constructor_TakesColorPalette()
     {
         Type type = GetColorPaletteAccessibleObjectType();
-        ConstructorInfo? ctor = type.GetConstructor(
+        var ctor = type.GetConstructor(
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { GetColorPaletteType() },
+            [GetColorPaletteType()],
             null);
         Assert.NotNull(ctor);
     }
@@ -78,7 +78,7 @@ public class ColorEditorAccessibleObjectTests
     public void ColorPaletteAccessibleObject_GetChildCount_ReturnsExpectedValue()
     {
         // Create an instance of the AccessibleObject
-        object? instance = CreateColorPaletteAccessibleObjectInstance();
+        object instance = CreateColorPaletteAccessibleObjectInstance();
         if (instance is not null)
         {
             int childCount = ((Control.ControlAccessibleObject)instance).GetChildCount();
@@ -119,7 +119,7 @@ public class ColorEditorAccessibleObjectTests
     public void ColorCellAccessibleObject_HasBoundsProperty()
     {
         Type type = GetColorCellAccessibleObjectType();
-        PropertyInfo? property = type.GetProperty("Bounds", BindingFlags.Public | BindingFlags.Instance);
+        var property = type.GetProperty("Bounds", BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(property);
     }
 
@@ -127,7 +127,7 @@ public class ColorEditorAccessibleObjectTests
     public void ColorCellAccessibleObject_HasNameProperty()
     {
         Type type = GetColorCellAccessibleObjectType();
-        PropertyInfo? property = type.GetProperty("Name", BindingFlags.Public | BindingFlags.Instance);
+        var property = type.GetProperty("Name", BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(property);
     }
 
@@ -135,7 +135,7 @@ public class ColorEditorAccessibleObjectTests
     public void ColorCellAccessibleObject_HasParentProperty()
     {
         Type type = GetColorCellAccessibleObjectType();
-        PropertyInfo? property = type.GetProperty("Parent", BindingFlags.Public | BindingFlags.Instance);
+        var property = type.GetProperty("Parent", BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(property);
     }
 
@@ -143,7 +143,7 @@ public class ColorEditorAccessibleObjectTests
     public void ColorCellAccessibleObject_HasRoleProperty()
     {
         Type type = GetColorCellAccessibleObjectType();
-        PropertyInfo? property = type.GetProperty("Role", BindingFlags.Public | BindingFlags.Instance);
+        var property = type.GetProperty("Role", BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(property);
     }
 
@@ -151,7 +151,7 @@ public class ColorEditorAccessibleObjectTests
     public void ColorCellAccessibleObject_HasStateProperty()
     {
         Type type = GetColorCellAccessibleObjectType();
-        PropertyInfo? property = type.GetProperty("State", BindingFlags.Public | BindingFlags.Instance);
+        var property = type.GetProperty("State", BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(property);
     }
 
@@ -159,7 +159,7 @@ public class ColorEditorAccessibleObjectTests
     public void ColorCellAccessibleObject_HasValueProperty()
     {
         Type type = GetColorCellAccessibleObjectType();
-        PropertyInfo? property = type.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance);
+        var property = type.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(property);
     }
 
@@ -168,10 +168,10 @@ public class ColorEditorAccessibleObjectTests
     {
         Type type = GetColorCellAccessibleObjectType();
         Type parentType = GetColorPaletteAccessibleObjectType();
-        ConstructorInfo? ctor = type.GetConstructor(
+        var ctor = type.GetConstructor(
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { parentType, typeof(Color), typeof(int) },
+            [parentType, typeof(Color), typeof(int)],
             null);
         Assert.NotNull(ctor);
     }
@@ -179,14 +179,14 @@ public class ColorEditorAccessibleObjectTests
     [Fact]
     public void ColorCellAccessibleObject_Role_ReturnsCell()
     {
-        object? instance = CreateColorCellAccessibleObjectInstance();
+        object instance = CreateColorCellAccessibleObjectInstance();
         if (instance is not null)
         {
-            PropertyInfo? roleProperty = instance.GetType().GetProperty("Role", BindingFlags.Public | BindingFlags.Instance);
+            var roleProperty = instance.GetType().GetProperty("Role", BindingFlags.Public | BindingFlags.Instance);
             Assert.NotNull(roleProperty);
             if (roleProperty is not null)
             {
-                object? role = roleProperty.GetValue(instance);
+                object role = roleProperty.GetValue(instance);
                 Assert.Equal(AccessibleRole.Cell, role);
             }
         }
@@ -195,15 +195,15 @@ public class ColorEditorAccessibleObjectTests
     [Fact]
     public void ColorCellAccessibleObject_Parent_ReturnsParentAccessibleObject()
     {
-        object? parentInstance = CreateColorPaletteAccessibleObjectInstance();
-        object? cellInstance = CreateColorCellAccessibleObjectInstance(parentInstance);
+        object parentInstance = CreateColorPaletteAccessibleObjectInstance();
+        object cellInstance = CreateColorCellAccessibleObjectInstance(parentInstance);
         if (cellInstance is not null && parentInstance is not null)
         {
-            PropertyInfo? parentProperty = cellInstance.GetType().GetProperty("Parent", BindingFlags.Public | BindingFlags.Instance);
+            var parentProperty = cellInstance.GetType().GetProperty("Parent", BindingFlags.Public | BindingFlags.Instance);
             Assert.NotNull(parentProperty);
             if (parentProperty is not null)
             {
-                object? parent = parentProperty.GetValue(cellInstance);
+                object parent = parentProperty.GetValue(cellInstance);
                 Assert.Same(parentInstance, parent);
             }
         }
@@ -212,14 +212,14 @@ public class ColorEditorAccessibleObjectTests
     [Fact]
     public void ColorCellAccessibleObject_Name_ReturnsColorString()
     {
-        object? cellInstance = CreateColorCellAccessibleObjectInstance();
+        object cellInstance = CreateColorCellAccessibleObjectInstance();
         if (cellInstance is not null)
         {
-            PropertyInfo? nameProperty = cellInstance.GetType().GetProperty("Name", BindingFlags.Public | BindingFlags.Instance);
+            var nameProperty = cellInstance.GetType().GetProperty("Name", BindingFlags.Public | BindingFlags.Instance);
             Assert.NotNull(nameProperty);
             if (nameProperty is not null)
             {
-                object? name = nameProperty.GetValue(cellInstance);
+                object name = nameProperty.GetValue(cellInstance);
                 Assert.NotNull(name);
                 Assert.IsType<string>(name);
                 Assert.NotEmpty((string)name);
@@ -230,14 +230,14 @@ public class ColorEditorAccessibleObjectTests
     [Fact]
     public void ColorCellAccessibleObject_Value_ReturnsColorString()
     {
-        object? cellInstance = CreateColorCellAccessibleObjectInstance();
+        object cellInstance = CreateColorCellAccessibleObjectInstance();
         if (cellInstance is not null)
         {
-            PropertyInfo? valueProperty = cellInstance.GetType().GetProperty("Value", BindingFlags.Public | BindingFlags.Instance);
+            var valueProperty = cellInstance.GetType().GetProperty("Value", BindingFlags.Public | BindingFlags.Instance);
             Assert.NotNull(valueProperty);
             if (valueProperty is not null)
             {
-                object? value = valueProperty.GetValue(cellInstance);
+                object value = valueProperty.GetValue(cellInstance);
                 Assert.NotNull(value);
                 Assert.IsType<string>(value);
                 Assert.NotEmpty((string)value);
@@ -273,44 +273,32 @@ public class ColorEditorAccessibleObjectTests
         return cellType!;
     }
 
-    private static object? CreateColorPaletteAccessibleObjectInstance()
+    private static object CreateColorPaletteAccessibleObjectInstance()
     {
         // Use RuntimeHelpers.GetUninitializedObject to bypass constructor that requires a ColorPalette
         Type accessibleObjectType = GetColorPaletteAccessibleObjectType();
         return RuntimeHelpers.GetUninitializedObject(accessibleObjectType);
     }
 
-    /// <summary>
-    /// Creates a ColorPaletteAccessibleObject via the ColorPalette's CreateAccessibilityInstance method.
-    /// This works because ColorPaletteAccessibleObject is created with the ColorPalette as owner.
-    /// </summary>
-    private static object? CreateColorPaletteAccessibleObjectViaCreateInstance()
-    {
-        return CreateColorPaletteAccessibleObjectInstance();
-    }
-
-    private static object? CreateColorCellAccessibleObjectInstance(object? parentInstance = null)
+    private static object CreateColorCellAccessibleObjectInstance(object parentInstance = null)
     {
         Type cellType = GetColorCellAccessibleObjectType();
         Type accessibleObjectType = GetColorPaletteAccessibleObjectType();
 
         // Try to find a parent
-        object? parent = parentInstance;
-        if (parent is null)
-        {
-            parent = CreateColorPaletteAccessibleObjectInstance();
-        }
+        object parent = parentInstance;
+        parent ??= CreateColorPaletteAccessibleObjectInstance();
 
         Assert.NotNull(parent);
 
-        ConstructorInfo? ctor = cellType.GetConstructor(
+        var ctor = cellType.GetConstructor(
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { accessibleObjectType, typeof(Color), typeof(int) },
+            [accessibleObjectType, typeof(Color), typeof(int)],
             null);
 
         Assert.NotNull(ctor);
-        return ctor!.Invoke(new object[] { parent!, Color.Red, 0 });
+        return ctor!.Invoke([parent!, Color.Red, 0]);
     }
 
     #endregion

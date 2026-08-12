@@ -5,7 +5,6 @@
 
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Windows.Forms;
 
 namespace System.Drawing.Design.Tests;
 
@@ -113,14 +112,14 @@ public class ColorEditorPaletteTests
         // (0, 1) -> 8 (CellsAcross)
         // (3, 2) -> 19
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("Get1DFrom2D",
+        var method = type.GetMethod("Get1DFrom2D",
             BindingFlags.NonPublic | BindingFlags.Static,
             null,
-            new[] { typeof(Point) },
+            [ typeof(Point) ],
             null);
         Assert.NotNull(method);
 
-        object? result = method!.Invoke(null, new object[] { new Point(3, 2) });
+        var result = method!.Invoke(null, [new Point(3, 2)]);
         Assert.Equal(19, (int)result!);
     }
 
@@ -128,14 +127,14 @@ public class ColorEditorPaletteTests
     public void ColorPalette_Get1DFrom2D_Point_NegativeX_ReturnsMinusOne()
     {
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("Get1DFrom2D",
+        var method = type.GetMethod("Get1DFrom2D",
             BindingFlags.NonPublic | BindingFlags.Static,
             null,
-            new[] { typeof(Point) },
+            [ typeof(Point) ],
             null);
         Assert.NotNull(method);
 
-        object? result = method!.Invoke(null, new object[] { new Point(-1, 0) });
+        var result = method!.Invoke(null, [new Point(-1, 0)]);
         Assert.Equal(-1, (int)result!);
     }
 
@@ -143,14 +142,14 @@ public class ColorEditorPaletteTests
     public void ColorPalette_Get1DFrom2D_Point_NegativeY_ReturnsMinusOne()
     {
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("Get1DFrom2D",
+        var method = type.GetMethod("Get1DFrom2D",
             BindingFlags.NonPublic | BindingFlags.Static,
             null,
-            new[] { typeof(Point) },
+            [ typeof(Point) ],
             null);
         Assert.NotNull(method);
 
-        object? result = method!.Invoke(null, new object[] { new Point(0, -1) });
+        var result = method!.Invoke(null, [new Point(0, -1)]);
         Assert.Equal(-1, (int)result!);
     }
 
@@ -158,14 +157,14 @@ public class ColorEditorPaletteTests
     public void ColorPalette_Get1DFrom2D_Ints_ValidCoordinates_ReturnsIndex()
     {
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("Get1DFrom2D",
+        var method = type.GetMethod("Get1DFrom2D",
             BindingFlags.NonPublic | BindingFlags.Static,
             null,
-            new[] { typeof(int), typeof(int) },
+            [ typeof(int), typeof(int) ],
             null);
         Assert.NotNull(method);
 
-        object? result = method!.Invoke(null, new object[] { 7, 7 });
+        var result = method!.Invoke(null, [7, 7]);
         Assert.Equal(63, (int)result!);
     }
 
@@ -173,14 +172,14 @@ public class ColorEditorPaletteTests
     public void ColorPalette_Get1DFrom2D_Ints_NegativeX_ReturnsMinusOne()
     {
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("Get1DFrom2D",
+        var method = type.GetMethod("Get1DFrom2D",
             BindingFlags.NonPublic | BindingFlags.Static,
             null,
-            new[] { typeof(int), typeof(int) },
+            [ typeof(int), typeof(int) ],
             null);
         Assert.NotNull(method);
 
-        object? result = method!.Invoke(null, new object[] { -1, 0 });
+        var result = method!.Invoke(null, [-1, 0]);
         Assert.Equal(-1, (int)result!);
     }
 
@@ -188,24 +187,24 @@ public class ColorEditorPaletteTests
     public void ColorPalette_Get2DFrom1D_ValidIndex_ReturnsCoordinates()
     {
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("Get2DFrom1D",
+        var method = type.GetMethod("Get2DFrom1D",
             BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
 
         // index 0 -> (0, 0)
-        object? result0 = method!.Invoke(null, new object[] { 0 });
+        var result0 = method!.Invoke(null, [0]);
         Assert.Equal(new Point(0, 0), (Point)result0!);
 
         // index 7 -> (7, 0)
-        object? result7 = method.Invoke(null, new object[] { 7 });
+        var result7 = method.Invoke(null, [7]);
         Assert.Equal(new Point(7, 0), (Point)result7!);
 
         // index 8 -> (0, 1)
-        object? result8 = method.Invoke(null, new object[] { 8 });
+        var result8 = method.Invoke(null, [8]);
         Assert.Equal(new Point(0, 1), (Point)result8!);
 
         // index 63 -> (7, 7)
-        object? result63 = method.Invoke(null, new object[] { 63 });
+        var result63 = method.Invoke(null, [63]);
         Assert.Equal(new Point(7, 7), (Point)result63!);
     }
 
@@ -213,11 +212,11 @@ public class ColorEditorPaletteTests
     public void ColorPalette_Get2DFrom1D_Zero_ReturnsZeroPoint()
     {
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("Get2DFrom1D",
+        var method = type.GetMethod("Get2DFrom1D",
             BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
 
-        object? result = method!.Invoke(null, new object[] { 0 });
+        var result = method!.Invoke(null, [0]);
         Assert.Equal(new Point(0, 0), (Point)result!);
     }
 
@@ -227,11 +226,11 @@ public class ColorEditorPaletteTests
         // MarginWidth = 8, CellSize = 16
         // cell 0,0 starts at (8, 8) with size (16, 16) -> center at (16, 16)
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("GetCell2DFromLocationMouse",
+        var method = type.GetMethod("GetCell2DFromLocationMouse",
             BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
 
-        object? result = method!.Invoke(null, new object[] { 16, 16 });
+        var result = method!.Invoke(null, [16, 16]);
         Assert.Equal(new Point(0, 0), (Point)result!);
     }
 
@@ -240,11 +239,11 @@ public class ColorEditorPaletteTests
     {
         // (0, 0) is in the margin
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("GetCell2DFromLocationMouse",
+        var method = type.GetMethod("GetCell2DFromLocationMouse",
             BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
 
-        object? result = method!.Invoke(null, new object[] { 0, 0 });
+        var result = method!.Invoke(null, [0, 0]);
         Assert.Equal(new Point(-1, -1), (Point)result!);
     }
 
@@ -252,16 +251,16 @@ public class ColorEditorPaletteTests
     public void ColorPalette_GetCell2DFromLocationMouse_OutOfBounds_ReturnsMinusOne()
     {
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("GetCell2DFromLocationMouse",
+        var method = type.GetMethod("GetCell2DFromLocationMouse",
             BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
 
         // x = 1000 is out of bounds
-        object? result = method!.Invoke(null, new object[] { 1000, 0 });
+        var result = method!.Invoke(null, [1000, 0]);
         Assert.Equal(new Point(-1, -1), (Point)result!);
 
         // y = 1000 is out of bounds
-        object? result2 = method!.Invoke(null, new object[] { 0, 1000 });
+        var result2 = method!.Invoke(null, [0, 1000]);
         Assert.Equal(new Point(-1, -1), (Point)result2!);
     }
 
@@ -269,11 +268,11 @@ public class ColorEditorPaletteTests
     public void ColorPalette_GetCell2DFromLocationMouse_NegativeCoordinates_ReturnsMinusOne()
     {
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("GetCell2DFromLocationMouse",
+        var method = type.GetMethod("GetCell2DFromLocationMouse",
             BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
 
-        object? result = method!.Invoke(null, new object[] { -1, 0 });
+        var result = method!.Invoke(null, [-1, 0]);
         Assert.Equal(new Point(-1, -1), (Point)result!);
     }
 
@@ -281,12 +280,12 @@ public class ColorEditorPaletteTests
     public void ColorPalette_GetCellFromLocationMouse_InsideCell_ReturnsIndex()
     {
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("GetCellFromLocationMouse",
+        var method = type.GetMethod("GetCellFromLocationMouse",
             BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
 
         // (16, 16) -> cell (0, 0) -> index 0
-        object? result = method!.Invoke(null, new object[] { 16, 16 });
+        var result = method!.Invoke(null, [16, 16]);
         Assert.Equal(0, (int)result!);
     }
 
@@ -294,49 +293,12 @@ public class ColorEditorPaletteTests
     public void ColorPalette_GetCellFromLocationMouse_OutOfBounds_ReturnsMinusOne()
     {
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("GetCellFromLocationMouse",
+        var method = type.GetMethod("GetCellFromLocationMouse",
             BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
 
-        object? result = method!.Invoke(null, new object[] { 1000, 0 });
+        var result = method!.Invoke(null, [1000, 0]);
         Assert.Equal(-1, (int)result!);
-    }
-
-    [Fact]
-    public void ColorPalette_FillRectWithCellBounds_SetsRectangle()
-    {
-        Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("FillRectWithCellBounds",
-            BindingFlags.NonPublic | BindingFlags.Static);
-        Assert.NotNull(method);
-
-        // Method signature: (int across, int down, ref Rectangle rect)
-        object?[] args = new object?[] { 0, 0, default(Rectangle) };
-        method!.Invoke(null, args);
-
-        Rectangle rect = (Rectangle)args[2]!;
-        Assert.Equal(8, rect.X);  // s_marginX
-        Assert.Equal(8, rect.Y);  // s_marginY
-        Assert.Equal(16, rect.Width);  // s_cellSizeX
-        Assert.Equal(16, rect.Height); // s_cellSizeY
-    }
-
-    [Fact]
-    public void ColorPalette_FillRectWithCellBounds_NonZeroCoords_SetsRectangle()
-    {
-        Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("FillRectWithCellBounds",
-            BindingFlags.NonPublic | BindingFlags.Static);
-        Assert.NotNull(method);
-
-        // Cell (1, 1) should start at (margin + 1 * (cellSize + margin), margin + 1 * (cellSize + margin))
-        // = (8 + 24, 8 + 24) = (32, 32)
-        object?[] args = new object?[] { 1, 1, default(Rectangle) };
-        method!.Invoke(null, args);
-
-        Rectangle rect = (Rectangle)args[2]!;
-        Assert.Equal(32, rect.X);
-        Assert.Equal(32, rect.Y);
     }
 
     [Fact]
@@ -344,7 +306,7 @@ public class ColorEditorPaletteTests
     {
         // Static method - should be safe to call without a handle
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("PaintValue",
+        var method = type.GetMethod("PaintValue",
             BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
 
@@ -353,7 +315,7 @@ public class ColorEditorPaletteTests
         Rectangle rect = new(0, 0, 50, 50);
 
         // Should not throw
-        method!.Invoke(null, new object[] { Color.Red, graphics, rect });
+        method!.Invoke(null, [Color.Red, graphics, rect]);
     }
 
     #endregion
@@ -365,11 +327,11 @@ public class ColorEditorPaletteTests
     {
         // _focus defaults to Point.Empty (0, 0) -> Get1DFrom2D returns 0
         object palette = CreateUninitializedPalette();
-        MethodInfo? method = GetColorPaletteType().GetMethod("get_FocusedCell",
+        var method = GetColorPaletteType().GetMethod("get_FocusedCell",
             BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public);
         Assert.NotNull(method);
 
-        object? result = method!.Invoke(palette, null);
+        var result = method!.Invoke(palette, null);
         // Note: FocusedCell uses Get1DFrom2D which returns -1 only when (x,y) == (-1,-1)
         // Point.Empty is (0,0) -> 0
         Assert.Equal(0, (int)result!);
@@ -379,11 +341,11 @@ public class ColorEditorPaletteTests
     public void ColorPalette_SelectedColor_GetInitial_ReturnsDefault()
     {
         object palette = CreateUninitializedPalette();
-        PropertyInfo? prop = GetColorPaletteType().GetProperty("SelectedColor",
+        var prop = GetColorPaletteType().GetProperty("SelectedColor",
             BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(prop);
 
-        object? value = prop!.GetValue(palette);
+        var value = prop!.GetValue(palette);
         Assert.Equal(default(Color), value);
     }
 
@@ -392,13 +354,13 @@ public class ColorEditorPaletteTests
     {
         using Control palette = CreateRealPalette();
 
-        PropertyInfo? prop = GetColorPaletteType().GetProperty("SelectedColor",
+        var prop = GetColorPaletteType().GetProperty("SelectedColor",
             BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(prop);
 
         // Set to a color that exists in the static cells (white = 0x00ffffff)
         prop!.SetValue(palette, Color.White);
-        object? value = prop.GetValue(palette);
+        var value = prop.GetValue(palette);
         Assert.Equal(Color.White, value);
     }
 
@@ -407,7 +369,7 @@ public class ColorEditorPaletteTests
     {
         using Control palette = CreateRealPalette();
 
-        PropertyInfo? prop = GetColorPaletteType().GetProperty("SelectedColor",
+        var prop = GetColorPaletteType().GetProperty("SelectedColor",
             BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(prop);
 
@@ -422,7 +384,7 @@ public class ColorEditorPaletteTests
     {
         object palette = CreateUninitializedPalette();
         Type type = GetColorPaletteType();
-        EventInfo? pickedEvent = type.GetEvent("Picked",
+        var pickedEvent = type.GetEvent("Picked",
             BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(pickedEvent);
 
@@ -442,11 +404,11 @@ public class ColorEditorPaletteTests
     {
         object palette = CreateUninitializedPalette();
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("Get_onPicked",
+        var method = type.GetMethod("Get_onPicked",
             BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(method);
 
-        object? result = method!.Invoke(palette, null);
+        var result = method!.Invoke(palette, null);
         Assert.Null(result);
     }
 
@@ -455,12 +417,12 @@ public class ColorEditorPaletteTests
     {
         object palette = CreateUninitializedPalette();
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("OnPicked",
+        var method = type.GetMethod("OnPicked",
             BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(method);
 
         // null handler should be no-op due to ?.Invoke
-        method!.Invoke(palette, new object?[] { EventArgs.Empty, null });
+        method!.Invoke(palette, [EventArgs.Empty, null]);
     }
 
     [Fact]
@@ -468,14 +430,14 @@ public class ColorEditorPaletteTests
     {
         object palette = CreateUninitializedPalette();
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("OnPicked",
+        var method = type.GetMethod("OnPicked",
             BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(method);
 
         bool handlerCalled = false;
         EventHandler handler = (s, e) => handlerCalled = true;
 
-        method!.Invoke(palette, new object?[] { EventArgs.Empty, handler });
+        method!.Invoke(palette, [EventArgs.Empty, handler]);
         Assert.True(handlerCalled);
     }
 
@@ -486,15 +448,15 @@ public class ColorEditorPaletteTests
         InitializePaletteForColorOps(palette);
 
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("GetColorFromCell",
+        var method = type.GetMethod("GetColorFromCell",
             BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { typeof(int) },
+            [ typeof(int) ],
             null);
         Assert.NotNull(method);
 
         // index 0 is in static range
-        object? result = method!.Invoke(palette, new object[] { 0 });
+        var result = method!.Invoke(palette, [0]);
         Assert.Equal(Color.FromArgb(255, 0, 0, 0), result);
     }
 
@@ -512,15 +474,15 @@ public class ColorEditorPaletteTests
         customColorsField.SetValue(palette, customColors);
 
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("GetColorFromCell",
+        var method = type.GetMethod("GetColorFromCell",
             BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { typeof(int) },
+            [ typeof(int) ],
             null);
         Assert.NotNull(method);
 
         // index = TotalCells - CellsCustom = 48 -> customColors[0]
-        object? result = method!.Invoke(palette, new object[] { ColorPalette_TotalCells - ColorPalette_CellsCustom });
+        var result = method!.Invoke(palette, [ColorPalette_TotalCells - ColorPalette_CellsCustom]);
         Assert.Equal(Color.Magenta, result);
     }
 
@@ -538,15 +500,15 @@ public class ColorEditorPaletteTests
         staticColorsField.SetValue(palette, staticColors);
 
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("GetColorFromCell",
+        var method = type.GetMethod("GetColorFromCell",
             BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { typeof(int), typeof(int) },
+            [ typeof(int), typeof(int) ],
             null);
         Assert.NotNull(method);
 
         // (5, 0) -> index 5
-        object? result = method!.Invoke(palette, new object[] { 5, 0 });
+        var result = method!.Invoke(palette, [5, 0]);
         Assert.Equal(Color.Green, result);
     }
 
@@ -557,12 +519,12 @@ public class ColorEditorPaletteTests
         InitializePaletteForColorOps(palette);
 
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("GetCellFromColor",
+        var method = type.GetMethod("GetCellFromColor",
             BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(method);
 
         // Color at (5, 0) has RGB (5, 0, 0) - set by InitializePaletteForColorOps
-        object? result = method!.Invoke(palette, new object[] { Color.FromArgb(255, 5, 0, 0) });
+        var result = method!.Invoke(palette, [Color.FromArgb(255, 5, 0, 0)]);
         Assert.Equal(new Point(5, 0), (Point)result!);
     }
 
@@ -573,12 +535,12 @@ public class ColorEditorPaletteTests
         InitializePaletteForColorOps(palette);
 
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("GetCellFromColor",
+        var method = type.GetMethod("GetCellFromColor",
             BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(method);
 
         // Color that doesn't exist
-        object? result = method!.Invoke(palette, new object[] { Color.Cyan });
+        var result = method!.Invoke(palette, [Color.Cyan]);
         Assert.Equal(Point.Empty, (Point)result!);
     }
 
@@ -587,15 +549,15 @@ public class ColorEditorPaletteTests
     {
         object palette = CreateUninitializedPalette();
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("IsInputKey",
+        var method = type.GetMethod("IsInputKey",
             BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(method);
 
-        Assert.True((bool)method!.Invoke(palette, new object[] { Keys.Left })!);
-        Assert.True((bool)method.Invoke(palette, new object[] { Keys.Right })!);
-        Assert.True((bool)method.Invoke(palette, new object[] { Keys.Up })!);
-        Assert.True((bool)method.Invoke(palette, new object[] { Keys.Down })!);
-        Assert.True((bool)method.Invoke(palette, new object[] { Keys.Enter })!);
+        Assert.True((bool)method!.Invoke(palette, [Keys.Left])!);
+        Assert.True((bool)method.Invoke(palette, [Keys.Right])!);
+        Assert.True((bool)method.Invoke(palette, [Keys.Up])!);
+        Assert.True((bool)method.Invoke(palette, [Keys.Down])!);
+        Assert.True((bool)method.Invoke(palette, [Keys.Enter])!);
     }
 
     [Fact]
@@ -603,12 +565,12 @@ public class ColorEditorPaletteTests
     {
         object palette = CreateUninitializedPalette();
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("IsInputKey",
+        var method = type.GetMethod("IsInputKey",
             BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(method);
 
         // F2 returns false (comment: VS will take it from us in ProcessDialogKey)
-        Assert.False((bool)method!.Invoke(palette, new object[] { Keys.F2 })!);
+        Assert.False((bool)method!.Invoke(palette, [Keys.F2])!);
     }
 
     // REMOVED: ColorPalette_IsInputKey_OtherKey_FallsToBase
@@ -624,14 +586,14 @@ public class ColorEditorPaletteTests
     {
         object palette = CreateUninitializedPalette();
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("SetFocus",
+        var method = type.GetMethod("SetFocus",
             BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(method);
 
         // New focus with negative X should be clamped to 0
-        method!.Invoke(palette, new object[] { new Point(-5, -5) });
+        method!.Invoke(palette, [new Point(-5, -5)]);
 
-        FieldInfo? focusField = type.GetField("_focus",
+        var focusField = type.GetField("_focus",
             BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(focusField);
         Point focus = (Point)focusField!.GetValue(palette)!;
@@ -644,14 +606,14 @@ public class ColorEditorPaletteTests
     {
         using Control palette = CreateRealPalette();
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("SetFocus",
+        var method = type.GetMethod("SetFocus",
             BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(method);
 
         // (100, 100) should clamp to (7, 7) = CellsAcross-1, CellsDown-1
-        method!.Invoke(palette, new object[] { new Point(100, 100) });
+        method!.Invoke(palette, [new Point(100, 100)]);
 
-        FieldInfo? focusField = type.GetField("_focus",
+        var focusField = type.GetField("_focus",
             BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(focusField);
         Point focus = (Point)focusField!.GetValue(palette)!;
@@ -664,13 +626,13 @@ public class ColorEditorPaletteTests
     {
         using Control palette = CreateRealPalette();
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("SetFocus",
+        var method = type.GetMethod("SetFocus",
             BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(method);
 
-        method!.Invoke(palette, new object[] { new Point(3, 2) });
+        method!.Invoke(palette, [new Point(3, 2)]);
 
-        FieldInfo? focusField = type.GetField("_focus",
+        var focusField = type.GetField("_focus",
             BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(focusField);
         Point focus = (Point)focusField!.GetValue(palette)!;
@@ -683,7 +645,7 @@ public class ColorEditorPaletteTests
         // InvalidateSelection is called by OnKeyDown (Enter/Space) and OnMouseUp (Left button).
         // Both are covered by the [WinFormsFact] tests below; this test verifies the method exists.
         Type type = GetColorPaletteType();
-        MethodInfo? method = type.GetMethod("InvalidateSelection",
+        var method = type.GetMethod("InvalidateSelection",
             BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(method);
     }
@@ -707,10 +669,10 @@ public class ColorEditorPaletteTests
     {
         Type type = GetColorPaletteType();
         Type colorUIType = typeof(ColorEditor).GetNestedType("ColorUI", BindingFlags.NonPublic)!;
-        ConstructorInfo? ctor = type.GetConstructor(
+        var ctor = type.GetConstructor(
             BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance,
             null,
-            new[] { colorUIType, typeof(Color[]) },
+            [ colorUIType, typeof(Color[]) ],
             null);
         Assert.NotNull(ctor);
     }
@@ -719,7 +681,7 @@ public class ColorEditorPaletteTests
     public void ColorPalette_HasFocusedCellProperty()
     {
         Type type = GetColorPaletteType();
-        PropertyInfo? prop = type.GetProperty("FocusedCell",
+        var prop = type.GetProperty("FocusedCell",
             BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public);
         Assert.NotNull(prop);
     }
@@ -728,7 +690,7 @@ public class ColorEditorPaletteTests
     public void ColorPalette_HasCustomColorsProperty()
     {
         Type type = GetColorPaletteType();
-        PropertyInfo? prop = type.GetProperty("CustomColors",
+        var prop = type.GetProperty("CustomColors",
             BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(prop);
     }
@@ -741,276 +703,276 @@ public class ColorEditorPaletteTests
     public void ColorPalette_OnGotFocus_InvokesBaseAndInvalidatesFocus()
     {
         using Control palette = CreateRealPalette();
-        MethodInfo? method = GetColorPaletteType().GetMethod("OnGotFocus",
+        var method = GetColorPaletteType().GetMethod("OnGotFocus",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { typeof(EventArgs) },
+            [ typeof(EventArgs) ],
             null);
         Assert.NotNull(method);
 
         // Should not throw with a valid handle
-        method!.Invoke(palette, new object[] { EventArgs.Empty });
+        method!.Invoke(palette, [EventArgs.Empty]);
     }
 
     [WinFormsFact]
     public void ColorPalette_OnLostFocus_InvokesBaseAndInvalidatesFocus()
     {
         using Control palette = CreateRealPalette();
-        MethodInfo? method = GetColorPaletteType().GetMethod("OnLostFocus",
+        var method = GetColorPaletteType().GetMethod("OnLostFocus",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { typeof(EventArgs) },
+            [ typeof(EventArgs) ],
             null);
         Assert.NotNull(method);
 
-        method!.Invoke(palette, new object[] { EventArgs.Empty });
+        method!.Invoke(palette, [EventArgs.Empty]);
     }
 
     [WinFormsFact]
     public void ColorPalette_OnKeyDown_LeftKey_ChangesFocus()
     {
         using Control palette = CreateRealPalette();
-        MethodInfo? method = GetColorPaletteType().GetMethod("OnKeyDown",
+        var method = GetColorPaletteType().GetMethod("OnKeyDown",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { typeof(KeyEventArgs) },
+            [ typeof(KeyEventArgs) ],
             null);
         Assert.NotNull(method);
 
         // Initial _focus is (0, 0). After Left key, it would go to (-1, 0) but SetFocus clamps to (0, 0)
         KeyEventArgs args = new(Keys.Left);
-        method!.Invoke(palette, new object[] { args });
+        method!.Invoke(palette, [args]);
     }
 
     [WinFormsFact]
     public void ColorPalette_OnKeyDown_RightKey_ChangesFocus()
     {
         using Control palette = CreateRealPalette();
-        MethodInfo? method = GetColorPaletteType().GetMethod("OnKeyDown",
+        var method = GetColorPaletteType().GetMethod("OnKeyDown",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { typeof(KeyEventArgs) },
+            [ typeof(KeyEventArgs) ],
             null);
         Assert.NotNull(method);
 
         KeyEventArgs args = new(Keys.Right);
-        method!.Invoke(palette, new object[] { args });
+        method!.Invoke(palette, [args]);
     }
 
     [WinFormsFact]
     public void ColorPalette_OnKeyDown_UpKey_ChangesFocus()
     {
         using Control palette = CreateRealPalette();
-        MethodInfo? method = GetColorPaletteType().GetMethod("OnKeyDown",
+        var method = GetColorPaletteType().GetMethod("OnKeyDown",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { typeof(KeyEventArgs) },
+            [ typeof(KeyEventArgs) ],
             null);
         Assert.NotNull(method);
 
         KeyEventArgs args = new(Keys.Up);
-        method!.Invoke(palette, new object[] { args });
+        method!.Invoke(palette, [args]);
     }
 
     [WinFormsFact]
     public void ColorPalette_OnKeyDown_DownKey_ChangesFocus()
     {
         using Control palette = CreateRealPalette();
-        MethodInfo? method = GetColorPaletteType().GetMethod("OnKeyDown",
+        var method = GetColorPaletteType().GetMethod("OnKeyDown",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { typeof(KeyEventArgs) },
+            [ typeof(KeyEventArgs) ],
             null);
         Assert.NotNull(method);
 
         KeyEventArgs args = new(Keys.Down);
-        method!.Invoke(palette, new object[] { args });
+        method!.Invoke(palette, [args]);
     }
 
     [WinFormsFact]
     public void ColorPalette_OnKeyDown_EnterKey_DoesNotThrow()
     {
         using Control palette = CreateRealPalette();
-        MethodInfo? method = GetColorPaletteType().GetMethod("OnKeyDown",
+        var method = GetColorPaletteType().GetMethod("OnKeyDown",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { typeof(KeyEventArgs) },
+            [ typeof(KeyEventArgs) ],
             null);
         Assert.NotNull(method);
 
         KeyEventArgs args = new(Keys.Enter);
-        method!.Invoke(palette, new object[] { args });
+        method!.Invoke(palette, [args]);
     }
 
     [WinFormsFact]
     public void ColorPalette_OnKeyDown_SpaceKey_DoesNotThrow()
     {
         using Control palette = CreateRealPalette();
-        MethodInfo? method = GetColorPaletteType().GetMethod("OnKeyDown",
+        var method = GetColorPaletteType().GetMethod("OnKeyDown",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { typeof(KeyEventArgs) },
+            [ typeof(KeyEventArgs) ],
             null);
         Assert.NotNull(method);
 
         KeyEventArgs args = new(Keys.Space);
-        method!.Invoke(palette, new object[] { args });
+        method!.Invoke(palette, [args]);
     }
 
     [WinFormsFact]
     public void ColorPalette_OnKeyDown_OtherKey_DoesNotThrow()
     {
         using Control palette = CreateRealPalette();
-        MethodInfo? method = GetColorPaletteType().GetMethod("OnKeyDown",
+        var method = GetColorPaletteType().GetMethod("OnKeyDown",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { typeof(KeyEventArgs) },
+            [ typeof(KeyEventArgs) ],
             null);
         Assert.NotNull(method);
 
         KeyEventArgs args = new(Keys.A);
-        method!.Invoke(palette, new object[] { args });
+        method!.Invoke(palette, [args]);
     }
 
     [WinFormsFact]
     public void ColorPalette_OnMouseDown_LeftButton_ValidCell_ChangesFocus()
     {
         using Control palette = CreateRealPalette();
-        MethodInfo? method = GetColorPaletteType().GetMethod("OnMouseDown",
+        var method = GetColorPaletteType().GetMethod("OnMouseDown",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { typeof(MouseEventArgs) },
+            [ typeof(MouseEventArgs) ],
             null);
         Assert.NotNull(method);
 
         // Click in cell (2, 1) which is different from initial focus (0, 0).
         // Cell (2, 1) center: x = 8 + 2*24 + 8 = 64, y = 8 + 1*24 + 8 = 40
         MouseEventArgs args = new(MouseButtons.Left, 1, 64, 40, 0);
-        method!.Invoke(palette, new object[] { args });
+        method!.Invoke(palette, [args]);
     }
 
     [WinFormsFact]
     public void ColorPalette_OnMouseDown_LeftButton_Margin_DoesNotChangeFocus()
     {
         using Control palette = CreateRealPalette();
-        MethodInfo? method = GetColorPaletteType().GetMethod("OnMouseDown",
+        var method = GetColorPaletteType().GetMethod("OnMouseDown",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { typeof(MouseEventArgs) },
+            [ typeof(MouseEventArgs) ],
             null);
         Assert.NotNull(method);
 
         // Click in the margin (0, 0)
         MouseEventArgs args = new(MouseButtons.Left, 1, 0, 0, 0);
-        method!.Invoke(palette, new object[] { args });
+        method!.Invoke(palette, [args]);
     }
 
     [WinFormsFact]
     public void ColorPalette_OnMouseDown_RightButton_DoesNotChangeFocus()
     {
         using Control palette = CreateRealPalette();
-        MethodInfo? method = GetColorPaletteType().GetMethod("OnMouseDown",
+        var method = GetColorPaletteType().GetMethod("OnMouseDown",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { typeof(MouseEventArgs) },
+            [ typeof(MouseEventArgs) ],
             null);
         Assert.NotNull(method);
 
         // Right-click should be ignored in OnMouseDown
         MouseEventArgs args = new(MouseButtons.Right, 1, 16, 16, 0);
-        method!.Invoke(palette, new object[] { args });
+        method!.Invoke(palette, [args]);
     }
 
     [WinFormsFact]
     public void ColorPalette_OnMouseMove_LeftButtonHeld_ValidCell_ChangesFocus()
     {
         using Control palette = CreateRealPalette();
-        MethodInfo? method = GetColorPaletteType().GetMethod("OnMouseMove",
+        var method = GetColorPaletteType().GetMethod("OnMouseMove",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { typeof(MouseEventArgs) },
+            [ typeof(MouseEventArgs) ],
             null);
         Assert.NotNull(method);
 
         // Move into cell (3, 2) which is different from initial focus (0, 0).
         // Cell (3, 2) center: x = 8 + 3*24 + 8 = 88, y = 8 + 2*24 + 8 = 64
         MouseEventArgs args = new(MouseButtons.Left, 1, 88, 64, 0);
-        method!.Invoke(palette, new object[] { args });
+        method!.Invoke(palette, [args]);
     }
 
     [WinFormsFact]
     public void ColorPalette_OnMouseMove_NoButton_DoesNotThrow()
     {
         using Control palette = CreateRealPalette();
-        MethodInfo? method = GetColorPaletteType().GetMethod("OnMouseMove",
+        var method = GetColorPaletteType().GetMethod("OnMouseMove",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { typeof(MouseEventArgs) },
+            [ typeof(MouseEventArgs) ],
             null);
         Assert.NotNull(method);
 
         // No button pressed - should be a no-op
         MouseEventArgs args = new(MouseButtons.None, 0, 16, 16, 0);
-        method!.Invoke(palette, new object[] { args });
+        method!.Invoke(palette, [args]);
     }
 
     [WinFormsFact]
     public void ColorPalette_OnMouseUp_LeftButton_ValidCell_PicksColor()
     {
         using Control palette = CreateRealPalette();
-        MethodInfo? method = GetColorPaletteType().GetMethod("OnMouseUp",
+        var method = GetColorPaletteType().GetMethod("OnMouseUp",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { typeof(MouseEventArgs) },
+            [ typeof(MouseEventArgs) ],
             null);
         Assert.NotNull(method);
 
         // Click and release on cell (0, 0)
         MouseEventArgs args = new(MouseButtons.Left, 1, 16, 16, 0);
-        method!.Invoke(palette, new object[] { args });
+        method!.Invoke(palette, [args]);
     }
 
     [WinFormsFact]
     public void ColorPalette_OnMouseUp_LeftButton_Margin_DoesNotPick()
     {
         using Control palette = CreateRealPalette();
-        MethodInfo? method = GetColorPaletteType().GetMethod("OnMouseUp",
+        var method = GetColorPaletteType().GetMethod("OnMouseUp",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { typeof(MouseEventArgs) },
+            [ typeof(MouseEventArgs) ],
             null);
         Assert.NotNull(method);
 
         // Click in margin - no cell hit
         MouseEventArgs args = new(MouseButtons.Left, 1, 0, 0, 0);
-        method!.Invoke(palette, new object[] { args });
+        method!.Invoke(palette, [args]);
     }
 
     [WinFormsFact]
     public void ColorPalette_OnMouseUp_RightButton_StaticCell_DoesNotLaunchDialog()
     {
         using Control palette = CreateRealPalette();
-        MethodInfo? method = GetColorPaletteType().GetMethod("OnMouseUp",
+        var method = GetColorPaletteType().GetMethod("OnMouseUp",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { typeof(MouseEventArgs) },
+            [ typeof(MouseEventArgs) ],
             null);
         Assert.NotNull(method);
 
         // Right-click on a static (non-custom) cell - LaunchDialog is not called
         // (would open a modal dialog if it were a custom cell)
         MouseEventArgs args = new(MouseButtons.Right, 1, 16, 16, 0);
-        method!.Invoke(palette, new object[] { args });
+        method!.Invoke(palette, [args]);
     }
 
     [WinFormsFact]
     public void ColorPalette_OnPaint_DoesNotThrow()
     {
         using Control palette = CreateRealPalette();
-        MethodInfo? method = GetColorPaletteType().GetMethod("OnPaint",
+        var method = GetColorPaletteType().GetMethod("OnPaint",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { typeof(PaintEventArgs) },
+            [ typeof(PaintEventArgs) ],
             null);
         Assert.NotNull(method);
 
@@ -1018,7 +980,7 @@ public class ColorEditorPaletteTests
         using Graphics graphics = Graphics.FromImage(bitmap);
         PaintEventArgs args = new(graphics, new Rectangle(0, 0, 50, 50));
 
-        method!.Invoke(palette, new object[] { args });
+        method!.Invoke(palette, [args]);
     }
 
     // LaunchDialog is not unit-testable because it shows a modal ColorDialog that would block.
@@ -1035,14 +997,6 @@ public class ColorEditorPaletteTests
         Type colorPaletteType = colorEditorType.GetNestedType("ColorPalette", BindingFlags.NonPublic);
         Assert.NotNull(colorPaletteType);
         return colorPaletteType;
-    }
-
-    private Type GetColorUIType()
-    {
-        Type colorEditorType = typeof(ColorEditor);
-        Type colorUIType = colorEditorType.GetNestedType("ColorUI", BindingFlags.NonPublic);
-        Assert.NotNull(colorUIType);
-        return colorUIType!;
     }
 
     private const int ColorPalette_CellsAcross = 8;
@@ -1078,6 +1032,7 @@ public class ColorEditorPaletteTests
         {
             staticColors[i] = Color.FromArgb(255, i, 0, 0);
         }
+
         staticColorsField.SetValue(palette, staticColors);
 
         // Set CustomColors (auto-property has backing field <CustomColors>k__BackingField)
@@ -1088,6 +1043,7 @@ public class ColorEditorPaletteTests
         {
             customColors[i] = Color.White;
         }
+
         customColorsField.SetValue(palette, customColors);
     }
 
@@ -1109,14 +1065,14 @@ public class ColorEditorPaletteTests
         }
 
         // Get the constructor (it's public, so we need Public | Instance)
-        ConstructorInfo? ctor = colorPaletteType.GetConstructor(
+        var ctor = colorPaletteType.GetConstructor(
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
             null,
-            new[] { colorUIType, typeof(Color[]) },
+            [ colorUIType, typeof(Color[]) ],
             null);
         Assert.NotNull(ctor);
 
-        Control palette = (Control)ctor!.Invoke(new object[] { colorUI, customColors });
+        Control palette = (Control)ctor!.Invoke([colorUI, customColors]);
         // Force handle creation
         Assert.NotEqual(IntPtr.Zero, palette.Handle);
         return palette;

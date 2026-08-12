@@ -5,7 +5,10 @@
 
 using System.ComponentModel;
 using System.Drawing.Imaging;
+using System.Reflection;
+using System.Windows.Forms.Design;
 using System.Windows.Forms.TestUtilities;
+using Moq;
 
 namespace System.Drawing.Design.Tests;
 
@@ -197,6 +200,254 @@ public class ImageEditorTests
         editor.PaintValue(null);
     }
 
+    [Fact]
+    public void ImageEditor_EditValue_ValidProvider_InitializesFileDialog()
+    {
+        ImageEditor editor = new();
+        Mock<IWindowsFormsEditorService> mockEditorService = new(MockBehavior.Strict);
+        Mock<IServiceProvider> mockServiceProvider = new(MockBehavior.Strict);
+        mockServiceProvider
+            .Setup(p => p.GetService(typeof(IWindowsFormsEditorService)))
+            .Returns(mockEditorService.Object);
+
+        Thread thread = new(() =>
+        {
+            try
+            {
+                _ = editor.EditValue(null, mockServiceProvider.Object, null);
+            }
+            catch
+            {
+                // The dialog is expected to be cancelled / aborted by the test runner.
+            }
+        })
+        { IsBackground = true };
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+
+        bool initialized = WaitForFileDialogInitialization(editor, TimeSpan.FromSeconds(2));
+        Assert.True(initialized, "_fileDialog should be initialized after EditValue with a valid provider.");
+    }
+
+    [Fact]
+    public void ImageEditor_EditValue_ValidProvider_ConfiguresFileDialogFilter()
+    {
+        // Validates the filter string constructed in EditValue combines this editor's
+        // description/extensions and the extender editors' filters separated by '|'.
+        ImageEditor editor = new();
+        Mock<IWindowsFormsEditorService> mockEditorService = new(MockBehavior.Strict);
+        Mock<IServiceProvider> mockServiceProvider = new(MockBehavior.Strict);
+        mockServiceProvider
+            .Setup(p => p.GetService(typeof(IWindowsFormsEditorService)))
+            .Returns(mockEditorService.Object);
+
+        Thread thread = new(() =>
+        {
+            try
+            {
+                _ = editor.EditValue(null, mockServiceProvider.Object, null);
+            }
+            catch
+            {
+            }
+        })
+        { IsBackground = true };
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+
+        bool initialized = WaitForFileDialogInitialization(editor, TimeSpan.FromSeconds(2));
+        Assert.True(initialized);
+
+        OpenFileDialog fileDialog = (OpenFileDialog)GetFileDialog(editor);
+        Assert.NotNull(fileDialog);
+        // The default extenders are BitmapEditor (bmp, gif, jpg, jpeg, png, ico) and
+        // MetafileEditor (emf, wmf). The filter should start with this editor's
+        // description and contain entries for the extender editors.
+        Assert.StartsWith("All image files", fileDialog.Filter);
+        Assert.Contains("|", fileDialog.Filter);
+    }
+
+    [Fact]
+    public void ImageEditor_EditValue_ValidProvider_CalledTwice_ReusesFileDialog()
+    {
+        // Verifies the `is null` check semantics: a second EditValue call with a
+        // valid provider reuses the existing _fileDialog rather than creating a new one.
+        ImageEditor editor = new();
+        Mock<IWindowsFormsEditorService> mockEditorService = new(MockBehavior.Strict);
+        Mock<IServiceProvider> mockServiceProvider = new(MockBehavior.Strict);
+        mockServiceProvider
+            .Setup(p => p.GetService(typeof(IWindowsFormsEditorService)))
+            .Returns(mockEditorService.Object);
+
+        void InvokeEdit()
+        {
+            try
+            {
+                _ = editor.EditValue(null, mockServiceProvider.Object, null);
+            }
+            catch
+            {
+            }
+        }
+
+        Thread thread1 = new(InvokeEdit) { IsBackground = true };
+        thread1.SetApartmentState(ApartmentState.STA);
+        thread1.Start();
+        thread1.Join(TimeSpan.FromSeconds(2));
+
+        OpenFileDialog firstDialog = (OpenFileDialog)GetFileDialog(editor);
+        Assert.NotNull(firstDialog);
+
+        Thread thread2 = new(InvokeEdit) { IsBackground = true };
+        thread2.SetApartmentState(ApartmentState.STA);
+        thread2.Start();
+        thread2.Join(TimeSpan.FromSeconds(2));
+
+        OpenFileDialog secondDialog = (OpenFileDialog)GetFileDialog(editor);
+        Assert.NotNull(secondDialog);
+        Assert.Same(firstDialog, secondDialog);
+    }
+
+    [Fact]
+    public void ImageEditor_EditValue_ValidProvider_NonImageValue_InitializesFileDialog()
+    {
+        // Valid provider path with a non-Image value: covers the case where the value
+        // passed in is not an Image, ensuring _fileDialog is still initialized.
+        ImageEditor editor = new();
+        Mock<IWindowsFormsEditorService> mockEditorService = new(MockBehavior.Strict);
+        Mock<IServiceProvider> mockServiceProvider = new(MockBehavior.Strict);
+        mockServiceProvider
+            .Setup(p => p.GetService(typeof(IWindowsFormsEditorService)))
+            .Returns(mockEditorService.Object);
+
+        Thread thread = new(() =>
+        {
+            try
+            {
+                _ = editor.EditValue(null, mockServiceProvider.Object, "not-an-image");
+            }
+            catch
+            {
+            }
+        })
+        { IsBackground = true };
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+
+        bool initialized = WaitForFileDialogInitialization(editor, TimeSpan.FromSeconds(2));
+        Assert.True(initialized, "_fileDialog should be initialized after EditValue with a valid provider, even for a non-Image value.");
+    }
+
+    [Fact]
+    public void ImageEditor_HasFileDialogField()
+    {
+        FieldInfo field = typeof(ImageEditor).GetField("_fileDialog",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        Assert.NotNull(field);
+        Assert.Equal(typeof(FileDialog), field.FieldType);
+    }
+
+    [Fact]
+    public void ImageEditor_FileDialogField_InitialValue_IsNull()
+    {
+        // Verifies that a freshly constructed ImageEditor has _fileDialog == null,
+        // which is required for the lazy initialization in EditValue.
+        ImageEditor editor = new();
+        FieldInfo field = typeof(ImageEditor).GetField("_fileDialog",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        object value = field.GetValue(editor);
+        Assert.Null(value);
+    }
+
+    [Fact]
+    public void ImageEditor_FileDialogField_AfterInvalidProviderEditValue_RemainsNull()
+    {
+        // Confirms that the invalid-provider early-return path in EditValue
+        // does NOT initialize the _fileDialog field.
+        ImageEditor editor = new();
+        _ = editor.EditValue(null, null, "test");
+
+        FieldInfo field = typeof(ImageEditor).GetField("_fileDialog",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        object value = field.GetValue(editor);
+        Assert.Null(value);
+    }
+
+    [Fact]
+    public void ImageEditor_GetExtensions_InvokeWithEmptyExtenders_ReturnsEmpty()
+    {
+        // Verifies that when GetImageExtenders returns an empty array, GetExtensions
+        // returns an empty string array (no extenders to iterate).
+        EmptyExtendersImageEditor editor = new();
+        Assert.Empty(editor.GetExtensions());
+    }
+
+    [Fact]
+    public void ImageEditor_GetExtensions_InvokeWithNullEntryInExtenders_SkipsNull()
+    {
+        // Verifies that GetExtensions skips a null entry in the extenders list
+        // (the `extender is null` check inside the loop).
+        NullEntryExtendersImageEditor editor = new();
+        string[] extensions = editor.GetExtensions();
+        Assert.Equal(new string[] { "PublicImageEditor" }, extensions);
+    }
+
+    [Fact]
+    public void ImageEditor_GetExtensions_InvokeWithNonImageEditorExtender_SkipsIt()
+    {
+        // Verifies that GetExtensions skips an entry that is not assignable to
+        // ImageEditor (the `!typeof(ImageEditor).IsAssignableFrom(extender)` check).
+        NonImageEditorExtendersImageEditor editor = new();
+        Assert.Empty(editor.GetExtensions());
+    }
+
+    [Fact]
+    public void ImageEditor_GetExtensions_InvokeWithExtenderReturningNullExtensions_SkipsIt()
+    {
+        // Verifies that GetExtensions skips an extender whose GetExtensions()
+        // returns null (the `if (extensions is not null)` check).
+        NullExtensionsExtendersImageEditor editor = new();
+        Assert.Empty(editor.GetExtensions());
+    }
+
+    [Fact]
+    public void ImageEditor_LoadFromStream_PngStream_ReturnsExpected()
+    {
+        // Verify LoadFromStream works with a PNG stream (valid image path, not just BMP).
+        SubImageEditor editor = new();
+        using MemoryStream stream = new();
+        using Bitmap image = new(16, 16);
+        image.Save(stream, ImageFormat.Png);
+        stream.Position = 0;
+        Bitmap result = Assert.IsType<Bitmap>(editor.LoadFromStream(stream));
+        Assert.Equal(new Size(16, 16), result.Size);
+    }
+
+    private static bool WaitForFileDialogInitialization(ImageEditor editor, TimeSpan timeout)
+    {
+        FieldInfo field = typeof(ImageEditor).GetField("_fileDialog",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        DateTime deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            if (field.GetValue(editor) is not null)
+            {
+                return true;
+            }
+
+            Thread.Sleep(20);
+        }
+
+        return field.GetValue(editor) is not null;
+    }
+
+    private static FileDialog GetFileDialog(ImageEditor editor)
+    {
+        FieldInfo field = typeof(ImageEditor).GetField("_fileDialog",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+        return (FileDialog)field.GetValue(editor)!;
+    }
+
     private class SubImageEditor : ImageEditor
     {
         public static new string CreateExtensionsString(string[] extensions, string sep)
@@ -260,5 +511,33 @@ public class ImageEditorTests
         }
 
         protected override string[] GetExtensions() => null;
+    }
+
+    private class EmptyExtendersImageEditor : ImageEditor
+    {
+        public new string[] GetExtensions() => base.GetExtensions();
+
+        protected override Type[] GetImageExtenders() => [];
+    }
+
+    private class NullEntryExtendersImageEditor : ImageEditor
+    {
+        public new string[] GetExtensions() => base.GetExtensions();
+
+        protected override Type[] GetImageExtenders() => [null, typeof(PublicImageEditor)];
+    }
+
+    private class NonImageEditorExtendersImageEditor : ImageEditor
+    {
+        public new string[] GetExtensions() => base.GetExtensions();
+
+        protected override Type[] GetImageExtenders() => [typeof(object)];
+    }
+
+    private class NullExtensionsExtendersImageEditor : ImageEditor
+    {
+        public new string[] GetExtensions() => base.GetExtensions();
+
+        protected override Type[] GetImageExtenders() => [typeof(NullExtensionsImageEditor)];
     }
 }

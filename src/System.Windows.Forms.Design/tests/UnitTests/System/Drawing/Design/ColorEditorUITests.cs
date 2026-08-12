@@ -40,7 +40,7 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         PropertyInfo valueProperty = colorUIType.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance);
-        if (valueProperty is not null)
+        if (valueProperty is { })
         {
             object value = valueProperty.GetValue(colorUI);
             Assert.Null(value);
@@ -55,7 +55,7 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         PropertyInfo editorServiceProperty = colorUIType.GetProperty("EditorService", BindingFlags.Public | BindingFlags.Instance);
-        if (editorServiceProperty is not null)
+        if (editorServiceProperty is { })
         {
             object editorService = editorServiceProperty.GetValue(colorUI);
             Assert.Null(editorService);
@@ -70,7 +70,7 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         PropertyInfo property = colorUIType.GetProperty("ColorValues", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (property is not null)
+        if (property is { })
         {
             object value = property.GetValue(colorUI);
             Assert.NotNull(value);
@@ -87,7 +87,7 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         PropertyInfo property = colorUIType.GetProperty("SystemColorValues", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (property is not null)
+        if (property is { })
         {
             object value = property.GetValue(colorUI);
             Assert.NotNull(value);
@@ -104,7 +104,7 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         PropertyInfo property = colorUIType.GetProperty("CustomColors", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (property is not null)
+        if (property is { })
         {
             object value = property.GetValue(colorUI);
             Assert.NotNull(value);
@@ -122,7 +122,7 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         PropertyInfo property = colorUIType.GetProperty("CustomColors", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (property is not null)
+        if (property is { })
         {
             object first = property.GetValue(colorUI);
             object second = property.GetValue(colorUI);
@@ -142,14 +142,14 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         MethodInfo endMethod = colorUIType.GetMethod("End", BindingFlags.Public | BindingFlags.Instance);
-        if (endMethod is not null)
+        if (endMethod is { })
         {
             // Should not throw
             endMethod.Invoke(colorUI, null);
 
             // After End(), Value should be null
             PropertyInfo valueProperty = colorUIType.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance);
-            if (valueProperty is not null)
+            if (valueProperty is { })
             {
                 object value = valueProperty.GetValue(colorUI);
                 Assert.Null(value);
@@ -167,10 +167,10 @@ public class ColorEditorUITests
         // Create mock editor service
         Mock<IWindowsFormsEditorService> mockEditorService = new(MockBehavior.Loose);
 
-        MethodInfo startMethod = colorUIType.GetMethod("Start", BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(IWindowsFormsEditorService), typeof(object) }, null);
-        if (startMethod is not null)
+        MethodInfo startMethod = colorUIType.GetMethod("Start", BindingFlags.Public | BindingFlags.Instance, null, [typeof(IWindowsFormsEditorService), typeof(object)], null);
+        if (startMethod is { })
         {
-            startMethod.Invoke(colorUI, new[] { mockEditorService.Object, (object)null });
+            startMethod.Invoke(colorUI, [mockEditorService.Object, (object)null]);
         }
     }
 
@@ -183,11 +183,11 @@ public class ColorEditorUITests
 
         Mock<IWindowsFormsEditorService> mockEditorService = new(MockBehavior.Loose);
 
-        MethodInfo startMethod = colorUIType.GetMethod("Start", BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(IWindowsFormsEditorService), typeof(object) }, null);
-        if (startMethod is not null)
+        MethodInfo startMethod = colorUIType.GetMethod("Start", BindingFlags.Public | BindingFlags.Instance, null, [typeof(IWindowsFormsEditorService), typeof(object)], null);
+        if (startMethod is { })
         {
             // Color.Red is one of the standard colors
-            startMethod.Invoke(colorUI, new object[] { mockEditorService.Object, Color.Red });
+            startMethod.Invoke(colorUI, [mockEditorService.Object, Color.Red]);
         }
     }
 
@@ -200,11 +200,11 @@ public class ColorEditorUITests
 
         Mock<IWindowsFormsEditorService> mockEditorService = new(MockBehavior.Loose);
 
-        MethodInfo startMethod = colorUIType.GetMethod("Start", BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(IWindowsFormsEditorService), typeof(object) }, null);
-        if (startMethod is not null)
+        MethodInfo startMethod = colorUIType.GetMethod("Start", BindingFlags.Public | BindingFlags.Instance, null, [typeof(IWindowsFormsEditorService), typeof(object)], null);
+        if (startMethod is { })
         {
             // Use a known system color
-            startMethod.Invoke(colorUI, new object[] { mockEditorService.Object, SystemColors.ActiveCaption });
+            startMethod.Invoke(colorUI, [mockEditorService.Object, SystemColors.ActiveCaption]);
         }
     }
 
@@ -217,11 +217,11 @@ public class ColorEditorUITests
 
         Mock<IWindowsFormsEditorService> mockEditorService = new(MockBehavior.Loose);
 
-        MethodInfo startMethod = colorUIType.GetMethod("Start", BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(IWindowsFormsEditorService), typeof(object) }, null);
-        if (startMethod is not null)
+        MethodInfo startMethod = colorUIType.GetMethod("Start", BindingFlags.Public | BindingFlags.Instance, null, [typeof(IWindowsFormsEditorService), typeof(object)], null);
+        if (startMethod is { })
         {
             // Color.FromArgb with specific value not in standard or system colors
-            startMethod.Invoke(colorUI, new object[] { mockEditorService.Object, Color.FromArgb(123, 45, 67) });
+            startMethod.Invoke(colorUI, [mockEditorService.Object, Color.FromArgb(123, 45, 67)]);
         }
     }
 
@@ -233,10 +233,10 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         MethodInfo getBestColorMethod = colorUIType.GetMethod("GetBestColor", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (getBestColorMethod is not null)
+        if (getBestColorMethod is { })
         {
             // Color.Red should be found in the standard colors
-            object result = getBestColorMethod.Invoke(colorUI, new object[] { Color.Red });
+            object result = getBestColorMethod.Invoke(colorUI, [Color.Red]);
             Assert.NotNull(result);
         }
     }
@@ -249,11 +249,11 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         MethodInfo getBestColorMethod = colorUIType.GetMethod("GetBestColor", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (getBestColorMethod is not null)
+        if (getBestColorMethod is { })
         {
             // Custom color not in standard palette - should be returned as-is
             Color customColor = Color.FromArgb(123, 45, 67);
-            object result = getBestColorMethod.Invoke(colorUI, new object[] { customColor });
+            object result = getBestColorMethod.Invoke(colorUI, [customColor]);
             Color returnedColor = Assert.IsType<Color>(result);
             Assert.Equal(customColor.ToArgb(), returnedColor.ToArgb());
         }
@@ -264,12 +264,12 @@ public class ColorEditorUITests
     {
         ColorEditor editor = new();
         Type colorUIType = GetColorUIType();
-        object colorUI = Activator.CreateInstance(colorUIType, editor);
+        _ = Activator.CreateInstance(colorUIType, editor);
 
         MethodInfo getConstantsMethod = colorUIType.GetMethod("GetConstants", BindingFlags.NonPublic | BindingFlags.Static);
-        if (getConstantsMethod is not null)
+        if (getConstantsMethod is { })
         {
-            object result = getConstantsMethod.Invoke(null, new object[] { typeof(Color) });
+            object result = getConstantsMethod.Invoke(null, [typeof(Color)]);
             Assert.NotNull(result);
             Color[] colors = Assert.IsAssignableFrom<Color[]>(result);
             Assert.NotEmpty(colors);
@@ -281,12 +281,12 @@ public class ColorEditorUITests
     {
         ColorEditor editor = new();
         Type colorUIType = GetColorUIType();
-        object colorUI = Activator.CreateInstance(colorUIType, editor);
+        _ = Activator.CreateInstance(colorUIType, editor);
 
         MethodInfo getConstantsMethod = colorUIType.GetMethod("GetConstants", BindingFlags.NonPublic | BindingFlags.Static);
-        if (getConstantsMethod is not null)
+        if (getConstantsMethod is { })
         {
-            object result = getConstantsMethod.Invoke(null, new object[] { typeof(SystemColors) });
+            object result = getConstantsMethod.Invoke(null, [typeof(SystemColors)]);
             Assert.NotNull(result);
             Color[] colors = Assert.IsAssignableFrom<Color[]>(result);
             Assert.NotEmpty(colors);
@@ -301,7 +301,7 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         MethodInfo adjustHeightMethod = colorUIType.GetMethod("AdjustColorUIHeight", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (adjustHeightMethod is not null)
+        if (adjustHeightMethod is { })
         {
             adjustHeightMethod.Invoke(colorUI, null);
         }
@@ -315,7 +315,7 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         MethodInfo adjustHeightMethod = colorUIType.GetMethod("AdjustListBoxItemHeight", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (adjustHeightMethod is not null)
+        if (adjustHeightMethod is { })
         {
             adjustHeightMethod.Invoke(colorUI, null);
         }
@@ -333,9 +333,9 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         MethodInfo onGotFocusMethod = colorUIType.GetMethod("OnGotFocus", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (onGotFocusMethod is not null)
+        if (onGotFocusMethod is { })
         {
-            onGotFocusMethod.Invoke(colorUI, new object[] { EventArgs.Empty });
+            onGotFocusMethod.Invoke(colorUI, [EventArgs.Empty]);
         }
     }
 
@@ -352,15 +352,15 @@ public class ColorEditorUITests
             .ToArray();
 
         // Test the private (sender, e) overload
-        MethodInfo? privateOnFontChanged = onFontChangedMethods.FirstOrDefault(m =>
+        var privateOnFontChanged = onFontChangedMethods.FirstOrDefault(m =>
         {
             ParameterInfo[] parameters = m.GetParameters();
             return parameters.Length == 2 && parameters[0].ParameterType == typeof(object);
         });
 
-        if (privateOnFontChanged is not null)
+        if (privateOnFontChanged is { })
         {
-            privateOnFontChanged.Invoke(colorUI, new object?[] { null, EventArgs.Empty });
+            privateOnFontChanged.Invoke(colorUI, [null, EventArgs.Empty]);
         }
     }
 
@@ -376,15 +376,15 @@ public class ColorEditorUITests
             .Where(m => m.Name == "OnFontChanged")
             .ToArray();
 
-        MethodInfo? protectedOnFontChanged = onFontChangedMethods.FirstOrDefault(m =>
+        var protectedOnFontChanged = onFontChangedMethods.FirstOrDefault(m =>
         {
             ParameterInfo[] parameters = m.GetParameters();
             return parameters.Length == 1 && parameters[0].ParameterType == typeof(EventArgs);
         });
 
-        if (protectedOnFontChanged is not null)
+        if (protectedOnFontChanged is { })
         {
-            protectedOnFontChanged.Invoke(colorUI, new object[] { EventArgs.Empty });
+            protectedOnFontChanged.Invoke(colorUI, [EventArgs.Empty]);
         }
     }
 
@@ -396,10 +396,10 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         MethodInfo onListClickMethod = colorUIType.GetMethod("OnListClick", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (onListClickMethod is not null)
+        if (onListClickMethod is { })
         {
             // When sender is null, the if condition fails and CloseDropDown is called on null _edSvc (no-op)
-            onListClickMethod.Invoke(colorUI, new object?[] { null, EventArgs.Empty });
+            onListClickMethod.Invoke(colorUI, [null, EventArgs.Empty]);
         }
     }
 
@@ -411,10 +411,10 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         MethodInfo onListClickMethod = colorUIType.GetMethod("OnListClick", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (onListClickMethod is not null)
+        if (onListClickMethod is { })
         {
             // Sender is not a ListBox - should not throw
-            onListClickMethod.Invoke(colorUI, new object?[] { new object(), EventArgs.Empty });
+            onListClickMethod.Invoke(colorUI, [new object(), EventArgs.Empty]);
         }
     }
 
@@ -426,14 +426,14 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         MethodInfo onListClickMethod = colorUIType.GetMethod("OnListClick", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (onListClickMethod is not null)
+        if (onListClickMethod is { })
         {
             // Create a ListBox with a selected Color item
             using ListBox listBox = new();
             listBox.Items.Add(Color.Red);
             listBox.SelectedItem = Color.Red;
 
-            onListClickMethod.Invoke(colorUI, new object?[] { listBox, EventArgs.Empty });
+            onListClickMethod.Invoke(colorUI, [listBox, EventArgs.Empty]);
 
             // Verify Value was set
             PropertyInfo valueProperty = colorUIType.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance);
@@ -450,14 +450,14 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         MethodInfo onListDrawItemMethod = colorUIType.GetMethod("OnListDrawItem", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (onListDrawItemMethod is not null)
+        if (onListDrawItemMethod is { })
         {
             using Bitmap bitmap = new(10, 10);
             using Graphics graphics = Graphics.FromImage(bitmap);
             DrawItemEventArgs args = new(graphics, Control.DefaultFont, new Rectangle(0, 0, 10, 10), 0, DrawItemState.Default);
 
             // Null sender should cause early return
-            onListDrawItemMethod.Invoke(colorUI, new object?[] { null, args });
+            onListDrawItemMethod.Invoke(colorUI, [null, args]);
         }
     }
 
@@ -469,7 +469,7 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         MethodInfo onListDrawItemMethod = colorUIType.GetMethod("OnListDrawItem", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (onListDrawItemMethod is not null)
+        if (onListDrawItemMethod is { })
         {
             using Bitmap bitmap = new(50, 20);
             using Graphics graphics = Graphics.FromImage(bitmap);
@@ -477,7 +477,7 @@ public class ColorEditorUITests
             listBox.Items.Add(Color.Red);
             DrawItemEventArgs args = new(graphics, Control.DefaultFont, new Rectangle(0, 0, 50, 20), 0, DrawItemState.Default);
 
-            onListDrawItemMethod.Invoke(colorUI, new object?[] { listBox, args });
+            onListDrawItemMethod.Invoke(colorUI, [listBox, args]);
         }
     }
 
@@ -489,11 +489,11 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         MethodInfo onListKeyDownMethod = colorUIType.GetMethod("OnListKeyDown", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (onListKeyDownMethod is not null)
+        if (onListKeyDownMethod is { })
         {
             KeyEventArgs args = new(Keys.Return);
             // When Return is pressed, it calls OnListClick which may access _edSvc
-            onListKeyDownMethod.Invoke(colorUI, new object?[] { null, args });
+            onListKeyDownMethod.Invoke(colorUI, [null, args]);
         }
     }
 
@@ -505,10 +505,10 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         MethodInfo onListKeyDownMethod = colorUIType.GetMethod("OnListKeyDown", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (onListKeyDownMethod is not null)
+        if (onListKeyDownMethod is { })
         {
             KeyEventArgs args = new(Keys.A);
-            onListKeyDownMethod.Invoke(colorUI, new object?[] { null, args });
+            onListKeyDownMethod.Invoke(colorUI, [null, args]);
         }
     }
 
@@ -520,9 +520,9 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         MethodInfo onPalettePickMethod = colorUIType.GetMethod("OnPalettePick", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (onPalettePickMethod is not null)
+        if (onPalettePickMethod is { })
         {
-            onPalettePickMethod.Invoke(colorUI, new object?[] { null, EventArgs.Empty });
+            onPalettePickMethod.Invoke(colorUI, [null, EventArgs.Empty]);
         }
     }
 
@@ -534,9 +534,9 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         MethodInfo onPalettePickMethod = colorUIType.GetMethod("OnPalettePick", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (onPalettePickMethod is not null)
+        if (onPalettePickMethod is { })
         {
-            onPalettePickMethod.Invoke(colorUI, new object?[] { new object(), EventArgs.Empty });
+            onPalettePickMethod.Invoke(colorUI, [new object(), EventArgs.Empty]);
         }
     }
 
@@ -548,9 +548,9 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         MethodInfo onTabControlResizeMethod = colorUIType.GetMethod("OnTabControlResize", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (onTabControlResizeMethod is not null)
+        if (onTabControlResizeMethod is { })
         {
-            onTabControlResizeMethod.Invoke(colorUI, new object?[] { null, EventArgs.Empty });
+            onTabControlResizeMethod.Invoke(colorUI, [null, EventArgs.Empty]);
         }
     }
 
@@ -562,10 +562,10 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         MethodInfo processDialogKeyMethod = colorUIType.GetMethod("ProcessDialogKey", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (processDialogKeyMethod is not null)
+        if (processDialogKeyMethod is { })
         {
             // Plain Tab - should advance to next tab
-            object? result = processDialogKeyMethod.Invoke(colorUI, new object[] { Keys.Tab });
+            var result = processDialogKeyMethod.Invoke(colorUI, [Keys.Tab]);
             Assert.NotNull(result);
         }
     }
@@ -578,10 +578,10 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         MethodInfo processDialogKeyMethod = colorUIType.GetMethod("ProcessDialogKey", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (processDialogKeyMethod is not null)
+        if (processDialogKeyMethod is { })
         {
             // Shift+Tab - should go to previous tab
-            object? result = processDialogKeyMethod.Invoke(colorUI, new object[] { Keys.Tab | Keys.Shift });
+            var result = processDialogKeyMethod.Invoke(colorUI, [Keys.Tab | Keys.Shift]);
             Assert.NotNull(result);
         }
     }
@@ -594,10 +594,10 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         MethodInfo processDialogKeyMethod = colorUIType.GetMethod("ProcessDialogKey", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (processDialogKeyMethod is not null)
+        if (processDialogKeyMethod is { })
         {
             // Non-Tab key - falls through to base implementation
-            object? result = processDialogKeyMethod.Invoke(colorUI, new object[] { Keys.A });
+            var result = processDialogKeyMethod.Invoke(colorUI, [Keys.A]);
             Assert.NotNull(result);
         }
     }
@@ -610,10 +610,10 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         MethodInfo processDialogKeyMethod = colorUIType.GetMethod("ProcessDialogKey", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (processDialogKeyMethod is not null)
+        if (processDialogKeyMethod is { })
         {
             // Ctrl+Tab - has Control modifier, so the special tab handling is skipped
-            object? result = processDialogKeyMethod.Invoke(colorUI, new object[] { Keys.Tab | Keys.Control });
+            var result = processDialogKeyMethod.Invoke(colorUI, [Keys.Tab | Keys.Control]);
             Assert.NotNull(result);
         }
     }
@@ -626,10 +626,10 @@ public class ColorEditorUITests
         object colorUI = Activator.CreateInstance(colorUIType, editor);
 
         MethodInfo processDialogKeyMethod = colorUIType.GetMethod("ProcessDialogKey", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (processDialogKeyMethod is not null)
+        if (processDialogKeyMethod is { })
         {
             // Alt+Tab - has Alt modifier, so the special tab handling is skipped
-            object? result = processDialogKeyMethod.Invoke(colorUI, new object[] { Keys.Tab | Keys.Alt });
+            var result = processDialogKeyMethod.Invoke(colorUI, [Keys.Tab | Keys.Alt]);
             Assert.NotNull(result);
         }
     }
@@ -641,7 +641,7 @@ public class ColorEditorUITests
     [Fact]
     public void ColorUI_IsControl_ReturnsCorrectType()
     {
-        ColorEditor editor = new();
+        _ = new ColorEditor();
         Type colorUIType = GetColorUIType();
 
         // Verify ColorUI is a Control
@@ -693,12 +693,12 @@ public class ColorEditorUITests
 
         Mock<IWindowsFormsEditorService> mockEditorService = new(MockBehavior.Loose);
 
-        MethodInfo startMethod = colorUIType.GetMethod("Start", BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(IWindowsFormsEditorService), typeof(object) }, null);
+        MethodInfo startMethod = colorUIType.GetMethod("Start", BindingFlags.Public | BindingFlags.Instance, null, [typeof(IWindowsFormsEditorService), typeof(object)], null);
         MethodInfo endMethod = colorUIType.GetMethod("End", BindingFlags.Public | BindingFlags.Instance);
 
-        if (startMethod is not null && endMethod is not null)
+        if (startMethod is { } && endMethod is { })
         {
-            startMethod.Invoke(colorUI, new object[] { mockEditorService.Object, Color.Red });
+            startMethod.Invoke(colorUI, [mockEditorService.Object, Color.Red]);
             endMethod.Invoke(colorUI, null);
 
             PropertyInfo valueProperty = colorUIType.GetProperty("Value", BindingFlags.Public | BindingFlags.Instance);
@@ -716,12 +716,12 @@ public class ColorEditorUITests
 
         Mock<IWindowsFormsEditorService> mockEditorService = new(MockBehavior.Loose);
 
-        MethodInfo startMethod = colorUIType.GetMethod("Start", BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(IWindowsFormsEditorService), typeof(object) }, null);
-        if (startMethod is not null)
+        MethodInfo startMethod = colorUIType.GetMethod("Start", BindingFlags.Public | BindingFlags.Instance, null, [typeof(IWindowsFormsEditorService), typeof(object)], null);
+        if (startMethod is { })
         {
-            startMethod.Invoke(colorUI, new object[] { mockEditorService.Object, Color.Red });
-            startMethod.Invoke(colorUI, new object[] { mockEditorService.Object, Color.Blue });
-            startMethod.Invoke(colorUI, new object[] { mockEditorService.Object, (object)null });
+            startMethod.Invoke(colorUI, [mockEditorService.Object, Color.Red]);
+            startMethod.Invoke(colorUI, [mockEditorService.Object, Color.Blue]);
+            startMethod.Invoke(colorUI, [mockEditorService.Object, (object)null]);
         }
     }
 
@@ -733,11 +733,11 @@ public class ColorEditorUITests
     public void ColorEditorListBox_IsInputKey_WithReturnKey_ReturnsTrue()
     {
         using ListBox listBox = CreateColorEditorListBox();
-        MethodInfo? isInputKeyMethod = listBox.GetType().GetMethod("IsInputKey", BindingFlags.NonPublic | BindingFlags.Instance);
+        var isInputKeyMethod = listBox.GetType().GetMethod("IsInputKey", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(isInputKeyMethod);
-        if (isInputKeyMethod is not null)
+        if (isInputKeyMethod is { })
         {
-            object? result = isInputKeyMethod.Invoke(listBox, new object[] { Keys.Return });
+            var result = isInputKeyMethod.Invoke(listBox, [Keys.Return]);
             Assert.True((bool)result!);
         }
     }
@@ -746,12 +746,12 @@ public class ColorEditorUITests
     public void ColorEditorListBox_IsInputKey_WithOtherKey_CallsBase()
     {
         using ListBox listBox = CreateColorEditorListBox();
-        MethodInfo? isInputKeyMethod = listBox.GetType().GetMethod("IsInputKey", BindingFlags.NonPublic | BindingFlags.Instance);
+        var isInputKeyMethod = listBox.GetType().GetMethod("IsInputKey", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(isInputKeyMethod);
-        if (isInputKeyMethod is not null)
+        if (isInputKeyMethod is { })
         {
             // A non-Return key should fall through to the base implementation
-            object? result = isInputKeyMethod.Invoke(listBox, new object[] { Keys.A });
+            var result = isInputKeyMethod.Invoke(listBox, [Keys.A]);
             // Result depends on base implementation - just verify it doesn't throw
             Assert.NotNull(result);
         }
@@ -768,7 +768,7 @@ public class ColorEditorUITests
     public void ColorEditorListBox_HasIsInputKeyMethod()
     {
         Type listBoxType = GetColorEditorListBoxType();
-        MethodInfo? method = listBoxType.GetMethod("IsInputKey", BindingFlags.NonPublic | BindingFlags.Instance);
+        var method = listBoxType.GetMethod("IsInputKey", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(method);
     }
 
@@ -801,7 +801,7 @@ public class ColorEditorUITests
     public void ColorEditorTabControl_HasOnGotFocusMethod()
     {
         Type tabControlType = GetColorEditorTabControlType();
-        MethodInfo? method = tabControlType.GetMethod("OnGotFocus", BindingFlags.NonPublic | BindingFlags.Instance);
+        var method = tabControlType.GetMethod("OnGotFocus", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(method);
     }
 
@@ -809,7 +809,7 @@ public class ColorEditorUITests
     public void ColorEditorTabControl_HasParameterlessConstructor()
     {
         Type tabControlType = GetColorEditorTabControlType();
-        ConstructorInfo? ctor = tabControlType.GetConstructor(
+        var ctor = tabControlType.GetConstructor(
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
             null,
             Type.EmptyTypes,
@@ -824,9 +824,9 @@ public class ColorEditorUITests
         TabControl tabControl = (TabControl)Activator.CreateInstance(tabControlType)!;
 
         // No selected tab - the if condition will be false, so we just verify it doesn't throw
-        MethodInfo? onGotFocusMethod = tabControlType.GetMethod("OnGotFocus", BindingFlags.NonPublic | BindingFlags.Instance);
+        var onGotFocusMethod = tabControlType.GetMethod("OnGotFocus", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(onGotFocusMethod);
-        onGotFocusMethod!.Invoke(tabControl, new object[] { EventArgs.Empty });
+        onGotFocusMethod!.Invoke(tabControl, [EventArgs.Empty]);
     }
 
     [WinFormsFact]
@@ -838,9 +838,9 @@ public class ColorEditorUITests
         TabPage tabPage = new();
         tabControl.TabPages.Add(tabPage);
 
-        MethodInfo? onGotFocusMethod = tabControlType.GetMethod("OnGotFocus", BindingFlags.NonPublic | BindingFlags.Instance);
+        var onGotFocusMethod = tabControlType.GetMethod("OnGotFocus", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(onGotFocusMethod);
-        onGotFocusMethod!.Invoke(tabControl, new object[] { EventArgs.Empty });
+        onGotFocusMethod!.Invoke(tabControl, [EventArgs.Empty]);
     }
 
     [WinFormsFact]
@@ -854,9 +854,9 @@ public class ColorEditorUITests
         tabPage.Controls.Add(button);
         tabControl.TabPages.Add(tabPage);
 
-        MethodInfo? onGotFocusMethod = tabControlType.GetMethod("OnGotFocus", BindingFlags.NonPublic | BindingFlags.Instance);
+        var onGotFocusMethod = tabControlType.GetMethod("OnGotFocus", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(onGotFocusMethod);
-        onGotFocusMethod!.Invoke(tabControl, new object[] { EventArgs.Empty });
+        onGotFocusMethod!.Invoke(tabControl, [EventArgs.Empty]);
     }
 
     #endregion
