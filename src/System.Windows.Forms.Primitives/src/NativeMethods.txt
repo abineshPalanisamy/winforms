@@ -7,6 +7,7 @@ ADVF
 AreDpiAwarenessContextsEqual
 ARW_*
 AUTOCOMPLETEOPTIONS
+BeginDeferWindowPos
 BFFM_*
 BIF_*
 BITMAP
@@ -63,6 +64,7 @@ DATETIMEPICK_CLASS
 DeactivateActCtx
 DefFrameProc
 DefMDIChildProc
+DeferWindowPos
 DESKTOP_ACCESS_FLAGS
 DestroyAcceleratorTable
 DestroyCursor
@@ -93,6 +95,7 @@ DTM_*
 DTN_*
 DTS_*
 DuplicateHandle
+DWMWINDOWATTRIBUTE
 DWM_WINDOW_CORNER_PREFERENCE
 DwmGetWindowAttribute
 DwmSetWindowAttribute
@@ -105,6 +108,7 @@ EN_*
 EnableMenuItem
 EnableScrollBar
 EnableWindow
+EndDeferWindowPos
 EndDialog
 ENM_*
 EnumDisplaySettings
@@ -184,6 +188,7 @@ GetProcessWindowStation
 GETPROPERTYSTOREFLAGS
 GetRgnBox
 GetROP2
+GetScrollBarInfo
 GetScrollInfo
 GetShortPathName
 GetStartupInfo
