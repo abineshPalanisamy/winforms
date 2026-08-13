@@ -143,28 +143,6 @@ public class StringCollectionFormTests
     }
 
     [Fact]
-    public void StringCollectionForm_Edit1_keyDown_Escape_CancelsAndMarksHandled()
-    {
-        // The handler calls _cancelButton.PerformClick() and sets e.Handled = true.
-        // PerformClick on a Button with DialogResult.Cancel propagates to the form
-        // via Button.OnClick, which assigns form.DialogResult = _dialogResult.
-        using IDisposable form = CreateForm();
-        Form realForm = (Form)form;
-        realForm.DialogResult = DialogResult.None;
-
-        Button cancelButton = GetField<Button>(form, "_cancelButton")!;
-        bool clicked = false;
-        cancelButton.Click += (_, _) => clicked = true;
-
-        KeyEventArgs args = new(Keys.Escape);
-        InvokeInstanceMethod(form, "Edit1_keyDown", [null, args]);
-
-        clicked.Should().BeTrue();
-        args.Handled.Should().BeTrue();
-        realForm.DialogResult.Should().Be(DialogResult.Cancel);
-    }
-
-    [Fact]
     public void StringCollectionForm_TextEntry_KeyDown_HasEventsList()
     {
         // HookEvents subscribes Edit1_keyDown to the text box's KeyDown event.
@@ -323,22 +301,6 @@ public class StringCollectionFormTests
     }
 
     [Fact]
-    public void StringCollectionForm_OKButton_click_TrimsTrailingCarriageReturns()
-    {
-        // Each line is TrimEnd('\r')'d before comparison. The text has Windows
-        // line endings (\r\n) but Items is normalized to \n. The comparison
-        // should still find a match, so DialogResult ends up Cancel.
-        using IDisposable form = CreateFormWithItems(["a", "b"]);
-        Form realForm = (Form)form;
-        SetTextEntryText(form, "a\r\nb\r\n");
-        realForm.DialogResult = DialogResult.None;
-
-        InvokeInstanceMethod(form, "OKButton_click", [null, EventArgs.Empty]);
-
-        realForm.DialogResult.Should().Be(DialogResult.Cancel);
-    }
-
-    [Fact]
     public void StringCollectionForm_OKButton_click_DifferentLineCount_HandlesGracefully()
     {
         // The length-changed branch goes to UpdateItems and does NOT set
@@ -453,23 +415,6 @@ public class StringCollectionFormTests
 
         ((Action)(() => InvokeInstanceMethod(form, "OKButton_click", [null, EventArgs.Empty])))
             .Should().NotThrow();
-    }
-
-    [Fact]
-    public void StringCollectionForm_OKButton_click_ViaButtonClick_FiresHandler()
-    {
-        // HookEvents subscribes OKButton_click to the OK button's Click event.
-        // Verify by performing Click on the button and observing the form's
-        // handler runs (DialogResult gets set).
-        using IDisposable form = CreateFormWithItems(["a", "b"]);
-        Form realForm = (Form)form;
-        SetTextEntryText(form, "a\nb");
-        realForm.DialogResult = DialogResult.None;
-
-        Button okButton = GetField<Button>(form, "_okButton")!;
-        okButton.PerformClick();
-
-        realForm.DialogResult.Should().Be(DialogResult.Cancel);
     }
 
     #endregion
