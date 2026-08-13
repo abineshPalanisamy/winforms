@@ -95,4 +95,47 @@ public class FontNameEditorTests
         FontNameEditor editor = new();
         editor.PaintValue(e);
     }
+
+    [Theory]
+    [InlineData("Arial")]
+    [InlineData("Times New Roman")]
+    [InlineData("Segoe UI")]
+    public void FontNameEditor_PaintValue_ValidFontName_DoesNotThrow(string fontName)
+    {
+        FontNameEditor editor = new();
+        using Bitmap bitmap = new(40, 20);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+
+        PaintValueEventArgs e = new(_typeDescriptorContext, fontName, graphics, new Rectangle(0, 0, 40, 20));
+        editor.PaintValue(e);
+    }
+
+    [Fact]
+    public void FontNameEditor_PaintValue_InvalidFontName_DoesNotThrow()
+    {
+        // An unknown font name causes new FontFamily(fontName) to throw,
+        // which is swallowed by the outer try/catch in PaintValue.
+        FontNameEditor editor = new();
+        using Bitmap bitmap = new(20, 20);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+
+        PaintValueEventArgs e = new(_typeDescriptorContext, "This Font Does Not Exist", graphics, new Rectangle(0, 0, 20, 20));
+        editor.PaintValue(e);
+    }
+
+    [Fact]
+    public void FontNameEditor_PaintValue_NonStringValue_DoesNotThrow()
+    {
+        // e.Value is not a string: the `as string` cast yields null,
+        // so PaintValue returns early without touching graphics.
+        PaintValueEventArgs e;
+        using (Bitmap bitmap = new(1, 1))
+        {
+            using var g = Graphics.FromImage(bitmap);
+            e = new PaintValueEventArgs(_typeDescriptorContext, 42, g, Rectangle.Empty);
+        }
+
+        FontNameEditor editor = new();
+        editor.PaintValue(e);
+    }
 }
