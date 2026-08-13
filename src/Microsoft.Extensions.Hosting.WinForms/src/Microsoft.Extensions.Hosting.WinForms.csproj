@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>$(NetCurrent)</TargetFramework>
+    <AssemblyName>Microsoft.Extensions.Hosting.WinForms</AssemblyName>
+    <RootNamespace>Microsoft.Extensions.Hosting.WinForms</RootNamespace>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <CLSCompliant>true</CLSCompliant>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <UsePublicApiAnalyzers>true</UsePublicApiAnalyzers>
+    <StrongNameKeyId>ECMA</StrongNameKeyId>
+    <!-- Suppress documentation style warnings and trimming annotation warnings -->
+    <NoWarn>$(NoWarn);DOC100;DOC101;SA1507;IL2091;CS1735</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\System.Windows.Forms\System.Windows.Forms.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
+</Project>

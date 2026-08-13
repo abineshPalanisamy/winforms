@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>$(NetCurrent)</TargetFramework>
+    <AssemblyName>WinFormsBuilderSample</AssemblyName>
+    <RootNamespace>WinFormsBuilderSample</RootNamespace>
+    <OutputType>WinExe</OutputType>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsTestUtilityProject>true</IsTestUtilityProject>
+    <EnableXlfLocalization>false</EnableXlfLocalization>
+    <NoWarn>$(NoWarn);DOC100;DOC101;SA1507;IL2091;CA1848</NoWarn>
+    <RuntimeFrameworkVersion>11.0.0-preview.6.26359.118</RuntimeFrameworkVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Microsoft.Extensions.Hosting.WinForms\src\Microsoft.Extensions.Hosting.WinForms.csproj" />
+    <ProjectReference Include="..\..\..\System.Windows.Forms\System.Windows.Forms.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>

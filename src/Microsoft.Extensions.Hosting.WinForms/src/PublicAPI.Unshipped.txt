@@ -1,0 +1,48 @@
+#nullable enable
+Microsoft.Extensions.WinForms.WinFormsApplicationBuilder.Properties.get -> System.Collections.Generic.IDictionary<object!, object!>!
+Microsoft.Extensions.WinForms.WinFormsApplicationBuilder.UseTextRenderingV2(bool enable = true) -> Microsoft.Extensions.WinForms.WinFormsApplicationBuilder!
+Microsoft.Extensions.WinForms.WinFormsApplicationBuilder.UseVisualStyles(bool enable = true) -> Microsoft.Extensions.WinForms.WinFormsApplicationBuilder!
+System.ComponentModel.IServiceProviderAssignable
+System.ComponentModel.IServiceProviderAssignable.SetServiceProvider(object! serviceProvider) -> System.IServiceProvider!
+Microsoft.Extensions.WinForms.IFormProvider
+Microsoft.Extensions.WinForms.IFormProvider.ShowForm<TForm>() -> TForm!
+Microsoft.Extensions.WinForms.IFormProvider.ShowFormAsync<TForm>(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Windows.Forms.DialogResult>!
+Microsoft.Extensions.WinForms.IGuiContext
+Microsoft.Extensions.WinForms.IGuiContext.IsUiThread.get -> bool
+Microsoft.Extensions.WinForms.IGuiContext.RequestClose() -> void
+Microsoft.Extensions.WinForms.IGuiContext.SynchronizationContext.get -> System.Threading.SynchronizationContext!
+Microsoft.Extensions.WinForms.WinFormsApplication
+Microsoft.Extensions.WinForms.WinFormsApplication.Dispose() -> void
+Microsoft.Extensions.WinForms.WinFormsApplication.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Microsoft.Extensions.WinForms.WinFormsApplication.Run() -> void
+Microsoft.Extensions.WinForms.WinFormsApplication.RunAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Microsoft.Extensions.WinForms.WinFormsApplication.StartAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Microsoft.Extensions.WinForms.WinFormsApplication.StopAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Microsoft.Extensions.WinForms.WinFormsApplication.Services.get -> System.IServiceProvider!
+static Microsoft.Extensions.WinForms.WinFormsApplication.CreateBuilder(string![]? args = null) -> Microsoft.Extensions.WinForms.WinFormsApplicationBuilder!
+static Microsoft.Extensions.WinForms.WinFormsApplication.Current.get -> Microsoft.Extensions.WinForms.WinFormsApplication?
+Microsoft.Extensions.WinForms.WinFormsApplicationBuilder
+Microsoft.Extensions.WinForms.WinFormsApplicationBuilder.Build() -> Microsoft.Extensions.WinForms.WinFormsApplication!
+Microsoft.Extensions.WinForms.WinFormsApplicationBuilder.Configuration.get -> Microsoft.Extensions.Configuration.IConfigurationManager!
+Microsoft.Extensions.WinForms.WinFormsApplicationBuilder.Environment.get -> Microsoft.Extensions.Hosting.IHostEnvironment!
+Microsoft.Extensions.WinForms.WinFormsApplicationBuilder.Logging.get -> Microsoft.Extensions.Logging.ILoggingBuilder!
+Microsoft.Extensions.WinForms.WinFormsApplicationBuilder.Metrics.get -> Microsoft.Extensions.Diagnostics.Metrics.IMetricsBuilder!
+Microsoft.Extensions.WinForms.WinFormsApplicationBuilder.Services.get -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+Microsoft.Extensions.WinForms.WinFormsApplicationBuilder.WinForms.get -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+Microsoft.Extensions.WinForms.WinFormsApplicationBuilder.ConfigureContainer<TContainerBuilder>(Microsoft.Extensions.DependencyInjection.IServiceProviderFactory<TContainerBuilder>! factory, System.Action<TContainerBuilder>? configure) -> void
+Microsoft.Extensions.WinForms.WinFormsApplicationBuilder.UseHighDpiMode(System.Windows.Forms.HighDpiMode highDpiMode) -> Microsoft.Extensions.WinForms.WinFormsApplicationBuilder!
+Microsoft.Extensions.WinForms.WinFormsApplicationBuilder.UseStartupForm<TForm>() -> Microsoft.Extensions.WinForms.WinFormsApplicationBuilder!
+Microsoft.Extensions.DependencyInjection.WinFormsHostingExtensions
+static Microsoft.Extensions.DependencyInjection.WinFormsHostingExtensions.AddWinFormsHostedService(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Microsoft.Extensions.DependencyInjection.WinFormsHostingExtensions.AddWinFormsMainForm<TForm>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Microsoft.Extensions.DependencyInjection.WinFormsHostingExtensions.AddWindowsFormsLifetime<TForm>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Microsoft.Extensions.WinForms.WinFormsHostingOptions!>? configureOptions = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+Microsoft.Extensions.WinForms.WinFormsHostingOptions
+Microsoft.Extensions.WinForms.WinFormsHostingOptions.EnableVisualStyles.get -> bool
+Microsoft.Extensions.WinForms.WinFormsHostingOptions.EnableVisualStyles.set -> void
+Microsoft.Extensions.WinForms.WinFormsHostingOptions.HighDpiMode.get -> System.Windows.Forms.HighDpiMode
+Microsoft.Extensions.WinForms.WinFormsHostingOptions.HighDpiMode.set -> void
+Microsoft.Extensions.WinForms.WinFormsHostingOptions.MaxConcurrentForms.get -> int
+Microsoft.Extensions.WinForms.WinFormsHostingOptions.MaxConcurrentForms.set -> void
+Microsoft.Extensions.WinForms.WinFormsHostingOptions.UseCompatibleTextRendering.get -> bool
+Microsoft.Extensions.WinForms.WinFormsHostingOptions.UseCompatibleTextRendering.set -> void
+Microsoft.Extensions.WinForms.WinFormsHostingOptions.WinFormsHostingOptions() -> void
