@@ -103,6 +103,162 @@ public class WindowsFormsComponentEditorTests
         Assert.Equal(0, editor.GetInitialComponentEditorPageIndex());
     }
 
+    [WinFormsFact]
+    public void WindowsFormsComponentEditor_EditComponent_InvokeITypeDescriptorContextObject_WithValidPages_ReturnsExpected()
+    {
+        using Component component = new();
+        CustomWindowsFormsComponentEditor editor = new()
+        {
+            GetComponentEditorPagesResult = [typeof(OkComponentEditorPage)]
+        };
+        Assert.True(editor.EditComponent((ITypeDescriptorContext)null, component));
+    }
+
+    [WinFormsFact]
+    public void WindowsFormsComponentEditor_EditComponent_InvokeITypeDescriptorContextObject_WithValidPagesCancel_ReturnsFalse()
+    {
+        using Component component = new();
+        CustomWindowsFormsComponentEditor editor = new()
+        {
+            GetComponentEditorPagesResult = [typeof(CancelComponentEditorPage)]
+        };
+        Assert.False(editor.EditComponent((ITypeDescriptorContext)null, component));
+    }
+
+    [WinFormsFact]
+    public void WindowsFormsComponentEditor_EditComponent_InvokeITypeDescriptorContextObject_WithMultipleValidPages_ReturnsExpected()
+    {
+        using Component component = new();
+        CustomWindowsFormsComponentEditor editor = new()
+        {
+            GetComponentEditorPagesResult =
+            [
+                typeof(OkComponentEditorPage),
+                typeof(OkComponentEditorPage),
+                typeof(OkComponentEditorPage)
+            ]
+        };
+        Assert.True(editor.EditComponent((ITypeDescriptorContext)null, component));
+    }
+
+    [WinFormsFact]
+    public void WindowsFormsComponentEditor_EditComponent_InvokeObjectIWin32Window_WithValidPages_ReturnsExpected()
+    {
+        using Component component = new();
+        CustomWindowsFormsComponentEditor editor = new()
+        {
+            GetComponentEditorPagesResult = [typeof(OkComponentEditorPage)]
+        };
+        Assert.True(editor.EditComponent(component, null));
+    }
+
+    [WinFormsFact]
+    public void WindowsFormsComponentEditor_EditComponent_InvokeObjectIWin32Window_WithValidPagesCancel_ReturnsFalse()
+    {
+        using Component component = new();
+        CustomWindowsFormsComponentEditor editor = new()
+        {
+            GetComponentEditorPagesResult = [typeof(CancelComponentEditorPage)]
+        };
+        Assert.False(editor.EditComponent(component, null));
+    }
+
+    [WinFormsFact]
+    public void WindowsFormsComponentEditor_EditComponent_InvokeObjectIWin32Window_WithValidPagesAndOwner_ReturnsExpected()
+    {
+        using Component component = new();
+        using Control owner = new();
+        CustomWindowsFormsComponentEditor editor = new()
+        {
+            GetComponentEditorPagesResult = [typeof(OkComponentEditorPage)]
+        };
+        Assert.True(editor.EditComponent(component, owner));
+    }
+
+    [WinFormsFact]
+    public void WindowsFormsComponentEditor_EditComponent_InvokeITypeDescriptorContextObjectIWin32Window_WithValidPages_ReturnsExpected()
+    {
+        using Component component = new();
+        CustomWindowsFormsComponentEditor editor = new()
+        {
+            GetComponentEditorPagesResult = [typeof(OkComponentEditorPage)]
+        };
+        Assert.True(editor.EditComponent((ITypeDescriptorContext)null, component, null));
+    }
+
+    [WinFormsFact]
+    public void WindowsFormsComponentEditor_EditComponent_InvokeITypeDescriptorContextObjectIWin32Window_WithValidPagesCancel_ReturnsFalse()
+    {
+        using Component component = new();
+        CustomWindowsFormsComponentEditor editor = new()
+        {
+            GetComponentEditorPagesResult = [typeof(CancelComponentEditorPage)]
+        };
+        Assert.False(editor.EditComponent((ITypeDescriptorContext)null, component, null));
+    }
+
+    [WinFormsFact]
+    public void WindowsFormsComponentEditor_EditComponent_InvokeITypeDescriptorContextObjectIWin32Window_WithValidPagesAndOwner_ReturnsExpected()
+    {
+        using Component component = new();
+        using Control owner = new();
+        CustomWindowsFormsComponentEditor editor = new()
+        {
+            GetComponentEditorPagesResult = [typeof(OkComponentEditorPage)]
+        };
+        Assert.True(editor.EditComponent((ITypeDescriptorContext)null, component, owner));
+    }
+
+    [WinFormsFact]
+    public void WindowsFormsComponentEditor_EditComponent_InvokeITypeDescriptorContextObjectIWin32Window_WithContext_ReturnsExpected()
+    {
+        using Component component = new();
+        Mock<ITypeDescriptorContext> mockContext = new(MockBehavior.Strict);
+        CustomWindowsFormsComponentEditor editor = new()
+        {
+            GetComponentEditorPagesResult = [typeof(OkComponentEditorPage)]
+        };
+        Assert.True(editor.EditComponent(mockContext.Object, component, null));
+    }
+
+    [WinFormsFact]
+    public void WindowsFormsComponentEditor_EditComponent_InvokeITypeDescriptorContextObjectIWin32Window_WithNonZeroInitialPageIndex_ReturnsExpected()
+    {
+        using Component component = new();
+        CustomIndexWindowsFormsComponentEditor editor = new()
+        {
+            GetComponentEditorPagesResult =
+            [
+                typeof(OkComponentEditorPage),
+                typeof(OkComponentEditorPage),
+                typeof(OkComponentEditorPage)
+            ],
+            GetInitialComponentEditorPageIndexResult = 1
+        };
+        Assert.True(editor.EditComponent((ITypeDescriptorContext)null, component, null));
+    }
+
+    [Fact]
+    public void WindowsFormsComponentEditor_GetComponentEditorPages_Override_ReturnsExpected()
+    {
+        Type[] expected = [typeof(OkComponentEditorPage)];
+        CustomWindowsFormsComponentEditor editor = new()
+        {
+            GetComponentEditorPagesResult = expected
+        };
+        Assert.Same(expected, editor.PublicGetComponentEditorPages());
+    }
+
+    [Fact]
+    public void WindowsFormsComponentEditor_GetInitialComponentEditorPageIndex_Override_ReturnsExpected()
+    {
+        CustomIndexWindowsFormsComponentEditor editor = new()
+        {
+            GetInitialComponentEditorPageIndexResult = 2
+        };
+        Assert.Equal(2, editor.PublicGetInitialComponentEditorPageIndex());
+    }
+
     private class SubWindowsFormsComponentEditor : WindowsFormsComponentEditor
     {
         public new Type[] GetComponentEditorPages() => base.GetComponentEditorPages();
@@ -114,6 +270,79 @@ public class WindowsFormsComponentEditorTests
     {
         public Type[] GetComponentEditorPagesResult { get; set; }
 
+        public Type[] PublicGetComponentEditorPages() => GetComponentEditorPages();
+
         protected override Type[] GetComponentEditorPages() => GetComponentEditorPagesResult;
+    }
+
+    private class CustomIndexWindowsFormsComponentEditor : WindowsFormsComponentEditor
+    {
+        public Type[] GetComponentEditorPagesResult { get; set; }
+
+        public int GetInitialComponentEditorPageIndexResult { get; set; }
+
+        public Type[] PublicGetComponentEditorPages() => GetComponentEditorPages();
+
+        public int PublicGetInitialComponentEditorPageIndex() => GetInitialComponentEditorPageIndex();
+
+        protected override Type[] GetComponentEditorPages() => GetComponentEditorPagesResult;
+
+        protected override int GetInitialComponentEditorPageIndex() => GetInitialComponentEditorPageIndexResult;
+    }
+
+    private class OkComponentEditorPage : ComponentEditorPage
+    {
+        public override void Activate()
+        {
+            base.Activate();
+            Form form = FindForm();
+            if (form is not null)
+            {
+                form.DialogResult = DialogResult.OK;
+                form.Close();
+            }
+        }
+
+        public override string Title => nameof(OkComponentEditorPage);
+
+        protected override void LoadComponent()
+        {
+        }
+
+        protected override void ReloadComponent()
+        {
+        }
+
+        protected override void SaveComponent()
+        {
+        }
+    }
+
+    private class CancelComponentEditorPage : ComponentEditorPage
+    {
+        public override void Activate()
+        {
+            base.Activate();
+            Form form = FindForm();
+            if (form is not null)
+            {
+                form.DialogResult = DialogResult.Cancel;
+                form.Close();
+            }
+        }
+
+        public override string Title => nameof(CancelComponentEditorPage);
+
+        protected override void LoadComponent()
+        {
+        }
+
+        protected override void ReloadComponent()
+        {
+        }
+
+        protected override void SaveComponent()
+        {
+        }
     }
 }
