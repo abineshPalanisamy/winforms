@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 #nullable disable
@@ -289,11 +289,9 @@ public class MultilineStringEditorTests
     {
         // ProcessDialogKey is protected on TextBoxBase so it cannot be called directly from outside the class.
         MethodInfo method = ui.GetType().GetMethod("ProcessDialogKey", BindingFlags.Instance | BindingFlags.NonPublic);
-        if (method is null)
-        {
-            throw new InvalidOperationException("ProcessDialogKey method not found.");
-        }
-        return (bool)method.Invoke(ui, new object[] { keyData });
+        return method is null
+            ? throw new InvalidOperationException("ProcessDialogKey method not found.")
+            : (bool)method.Invoke(ui, [keyData]);
     }
 
     private static RichTextBox CreateEditorUI()
