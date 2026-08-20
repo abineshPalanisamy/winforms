@@ -839,6 +839,147 @@ public class ToolStripCollectionEditorTests
     }
 
     [Fact]
+    public void ToolStripCollectionEditor_OnNewItemTypes_SelectionChangeCommitted_ValidType_AddsItemWithImageStyle()
+    {
+        using Form form = _editor.TestAccessor.Dynamic.CreateCollectionForm();
+        dynamic formAccessor = form.TestAccessor.Dynamic;
+        ComboBox newItemTypes = formAccessor._newItemTypes;
+        Button btnAddNew = formAccessor._btnAddNew;
+        FilterListBox listBox = formAccessor._listBoxItems;
+        CreateEditorItemCollectionWithHost(form);
+
+        // A ToolStripButton exercises the Image/DisplayStyle/ImageTransparentColor branch.
+        Type typeListItemType = form.GetType()
+            .GetNestedType("TypeListItem", BindingFlags.NonPublic)!;
+        object typeListItem = Activator.CreateInstance(typeListItemType, typeof(ToolStripButton))!;
+        newItemTypes.Items.Add(typeListItem);
+        newItemTypes.SelectedIndex = 0;
+
+        Action act = () => formAccessor.OnNewItemTypes_SelectionChangeCommitted(btnAddNew, EventArgs.Empty);
+        act.Should().NotThrow();
+
+        // The host plus the newly-added button should now be in the listbox.
+        listBox.Items.Count.Should().Be(2);
+    }
+
+    [Fact]
+    public void ToolStripCollectionEditor_OnFormLoad_ContextInstanceIsComponent_PopulatesNewItemTypes()
+    {
+        using Form form = _editor.TestAccessor.Dynamic.CreateCollectionForm();
+        dynamic formAccessor = form.TestAccessor.Dynamic;
+        ComboBox newItemTypes = formAccessor._newItemTypes;
+
+        using ToolStrip component = new();
+        Mock<ITypeDescriptorContext> mockContext = new();
+        mockContext.Setup(c => c.Instance).Returns(component);
+        SetEditorContext(_editor, mockContext.Object);
+
+        Action act = () => formAccessor.OnFormLoad(form, EventArgs.Empty);
+        act.Should().NotThrow();
+
+        newItemTypes.Items.Count.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public void ToolStripCollectionEditor_OnFormLoad_ContextInstanceNotComponent_ReturnsEarly()
+    {
+        using Form form = _editor.TestAccessor.Dynamic.CreateCollectionForm();
+        dynamic formAccessor = form.TestAccessor.Dynamic;
+        ComboBox newItemTypes = formAccessor._newItemTypes;
+
+        Mock<ITypeDescriptorContext> mockContext = new();
+        mockContext.Setup(c => c.Instance).Returns("notAComponent");
+        SetEditorContext(_editor, mockContext.Object);
+
+        int originalCount = newItemTypes.Items.Count;
+
+        Action act = () => formAccessor.OnFormLoad(form, EventArgs.Empty);
+        act.Should().NotThrow();
+
+        newItemTypes.Items.Count.Should().Be(originalCount);
+    }
+
+    [Fact]
+    public void ToolStripCollectionEditor_ImageComboBox_WndProc_SetFocus_InvalidatesImageRect()
+    {
+        using Form form = _editor.TestAccessor.Dynamic.CreateCollectionForm();
+        dynamic formAccessor = form.TestAccessor.Dynamic;
+        ComboBox newItemTypes = formAccessor._newItemTypes;
+
+        Type imageComboBoxType = form.GetType()
+            .GetNestedType("ImageComboBox", BindingFlags.NonPublic)!;
+        MethodInfo method = imageComboBoxType.GetMethod(
+            "WndProc",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+        Message message = Message.Create(newItemTypes.Handle, 0x0007 /* WM_SETFOCUS */, IntPtr.Zero, IntPtr.Zero);
+        object[] parameters = [message];
+
+        Action act = () => method.Invoke(newItemTypes, parameters);
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void ToolStripCollectionEditor_ImageComboBox_WndProc_KillFocus_InvalidatesImageRect()
+    {
+        using Form form = _editor.TestAccessor.Dynamic.CreateCollectionForm();
+        dynamic formAccessor = form.TestAccessor.Dynamic;
+        ComboBox newItemTypes = formAccessor._newItemTypes;
+
+        Type imageComboBoxType = form.GetType()
+            .GetNestedType("ImageComboBox", BindingFlags.NonPublic)!;
+        MethodInfo method = imageComboBoxType.GetMethod(
+            "WndProc",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+        Message message = Message.Create(newItemTypes.Handle, 0x0008 /* WM_KILLFOCUS */, IntPtr.Zero, IntPtr.Zero);
+        object[] parameters = [message];
+
+        Action act = () => method.Invoke(newItemTypes, parameters);
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void ToolStripCollectionEditor_ImageComboBox_WndProc_OtherMessage_DoesNotThrow()
+    {
+        using Form form = _editor.TestAccessor.Dynamic.CreateCollectionForm();
+        dynamic formAccessor = form.TestAccessor.Dynamic;
+        ComboBox newItemTypes = formAccessor._newItemTypes;
+
+        Type imageComboBoxType = form.GetType()
+            .GetNestedType("ImageComboBox", BindingFlags.NonPublic)!;
+        MethodInfo method = imageComboBoxType.GetMethod(
+            "WndProc",
+            BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+        // WM_NULL falls through the switch without invalidating anything.
+        Message message = Message.Create(newItemTypes.Handle, 0x0000, IntPtr.Zero, IntPtr.Zero);
+        object[] parameters = [message];
+
+        Action act = () => method.Invoke(newItemTypes, parameters);
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void ToolStripCollectionEditor_EditorItemCollection_OnInsertComplete_ItemAlreadyInTargetCollection_SkipsDuplicateInsert()
+    {
+        using Form form = _editor.TestAccessor.Dynamic.CreateCollectionForm();
+        (object itemList, ToolStrip _) = CreateEditorItemCollectionWithHost(form);
+        IList targetList = GetEditorItemCollectionTargetList(itemList);
+
+        using ToolStripButton item = new("item1");
+
+        // Pre-seed the target collection so OnInsertComplete's Contains check is already true,
+        // exercising the skip-insert branch.
+        targetList.Add(item);
+
+        Action act = () => InvokeEditorItemCollectionAdd(itemList, item);
+        act.Should().NotThrow();
+
+        targetList.Cast<object>().Count(i => ReferenceEquals(i, item)).Should().Be(1);
+    }
+
+    [Fact]
     public void ToolStripCollectionEditor_OnComboHandleCreated_WiresMeasureAndDrawEvents()
     {
         using Form form = _editor.TestAccessor.Dynamic.CreateCollectionForm();
@@ -1321,5 +1462,32 @@ public class ToolStripCollectionEditorTests
     {
         itemList.GetType().GetMethod("OnInsertComplete", BindingFlags.NonPublic | BindingFlags.Instance, null, [typeof(int), typeof(object)], null)!
             .Invoke(itemList, [index, value]);
+    }
+
+    /// <summary>
+    ///  Returns the private "_targetCollectionList" field backing the given <c>EditorItemCollection</c>.
+    /// </summary>
+    private static IList GetEditorItemCollectionTargetList(object itemList)
+    {
+        return (IList)itemList.GetType()
+            .GetField("_targetCollectionList", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .GetValue(itemList)!;
+    }
+
+    /// <summary>
+    ///  Sets the private context field on the base <see cref="CollectionEditor"/> so that
+    ///  code paths depending on <c>Context.Instance</c> (e.g. <c>OnFormLoad</c>) can be exercised
+    ///  without going through the full modal <c>EditValue</c> flow.
+    /// </summary>
+    private static void SetEditorContext(ToolStripCollectionEditor editor, ITypeDescriptorContext context)
+    {
+        FieldInfo? field = null;
+        for (Type? type = editor.GetType(); type is not null && field is null; type = type.BaseType)
+        {
+            field = type.GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
+                .FirstOrDefault(f => typeof(ITypeDescriptorContext).IsAssignableFrom(f.FieldType));
+        }
+
+        field!.SetValue(editor, context);
     }
 }
