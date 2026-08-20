@@ -60,7 +60,7 @@ public class ImageListImageEditorTests
         var editor_GetImageExtenders = editor.TestAccessor.CreateDelegate<Func<Type[]>>("GetImageExtenders");
 
         Type[] extenders = editor_GetImageExtenders();
-        Assert.Equal(new[] { typeof(BitmapEditor) }, extenders);
+        Assert.Equal([typeof(BitmapEditor)], extenders);
         Assert.Same(extenders, editor_GetImageExtenders());
     }
 
@@ -89,7 +89,7 @@ public class ImageListImageEditorTests
         // When the provider is null, the editor returns the incoming value as-is.
         // When the provider is non-null but does not surface IWindowsFormsEditorService,
         // the editor returns an empty ArrayList.
-        object? result = editor.EditValue(null, provider, value);
+        object result = editor.EditValue(null, provider, value);
         if (provider is null)
         {
             Assert.Same(value, result);
@@ -109,8 +109,8 @@ public class ImageListImageEditorTests
         // used as the active window to automatically dismiss the file dialog (returning
         // DialogResult.Cancel) when it becomes idle. The test runs on a dedicated STA
         // thread because FileDialog requires STA.
-        object?[] threadResult = new object?[1];
-        Exception?[] threadException = new Exception?[1];
+        object[] threadResult = new object[1];
+        Exception[] threadException = new Exception[1];
 
         Thread thread = new(() =>
         {
@@ -164,8 +164,8 @@ public class ImageListImageEditorTests
         // finally the file dialog is shown. A DialogHostForm is used as the active
         // window to automatically dismiss the file dialog (DialogResult.Cancel).
         // The test runs on a dedicated STA thread because FileDialog requires STA.
-        object?[] threadResult = new object?[1];
-        Exception?[] threadException = new Exception?[1];
+        object[] threadResult = new object[1];
+        Exception[] threadException = new Exception[1];
 
         Thread thread = new(() =>
         {
@@ -254,8 +254,8 @@ public class ImageListImageEditorTests
 
         try
         {
-            object?[] threadResult = new object?[1];
-            Exception?[] threadException = new Exception?[1];
+            object[] threadResult = new object[1];
+            Exception[] threadException = new Exception[1];
 
             Thread thread = new(() =>
             {

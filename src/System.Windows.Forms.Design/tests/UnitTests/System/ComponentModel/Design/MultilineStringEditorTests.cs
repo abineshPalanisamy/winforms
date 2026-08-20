@@ -223,17 +223,15 @@ public class MultilineStringEditorTests
     {
         using RichTextBox ui = CreateEditorUI();
         Font original = ui.Font;
-        try
-        {
-            using Font newFont = new(original.FontFamily, original.Size + 4, original.Style);
-            ui.Font = newFont;
-            // The override ignores the assignment; the underlying base.Font remains unchanged.
-            Assert.Equal(original.SizeInPoints, ui.Font.SizeInPoints);
-        }
-        finally
-        {
-            original.Dispose();
-        }
+
+        // Note: do not dispose 'original' here. Because the Font was never explicitly set, this getter
+        // returns the control's underlying base.Font, which falls back to the shared, process-wide default
+        // Font instance. Disposing it would corrupt font rendering for every other control created
+        // afterward in this test process.
+        using Font newFont = new(original.FontFamily, original.Size + 4, original.Style);
+        ui.Font = newFont;
+        // The override ignores the assignment; the underlying base.Font remains unchanged.
+        Assert.Equal(original.SizeInPoints, ui.Font.SizeInPoints);
     }
 
     [Fact]
@@ -285,6 +283,113 @@ public class MultilineStringEditorTests
         Assert.False(dynamicUi._contentsResizedRaised);
     }
 
+    [Fact]
+    public void MultilineStringEditorUI_IsInputKey_ReturnKeyMultiline_ReturnsTrue()
+    {
+        using RichTextBox ui = CreateEditorUI();
+        Assert.True(InvokeIsInputKey(ui, Keys.Return));
+    }
+
+    [Fact]
+    public void MultilineStringEditorUI_IsInputKey_ReturnKeyWithAlt_ReturnsBaseValue()
+    {
+        using RichTextBox ui = CreateEditorUI();
+        Assert.False(InvokeIsInputKey(ui, Keys.Return | Keys.Alt));
+    }
+
+    [Fact]
+    public void MultilineStringEditorUI_IsInputKey_OtherKey_ReturnsBaseValue()
+    {
+        using RichTextBox ui = CreateEditorUI();
+        Assert.False(InvokeIsInputKey(ui, Keys.A));
+    }
+
+    [Fact]
+    public void MultilineStringEditorUI_OnKeyDown_CtrlEnter_ClosesDropDownAndSetsCtrlEnterFlag()
+    {
+        using RichTextBox ui = CreateEditorUI();
+        dynamic dynamicUi = ui.TestAccessor.Dynamic;
+        Mock<IWindowsFormsEditorService> mockEditorService = new(MockBehavior.Strict);
+        mockEditorService.Setup(e => e.DropDownControl(It.IsAny<Control>())).Verifiable();
+        mockEditorService.Setup(e => e.CloseDropDown()).Verifiable();
+        dynamicUi.BeginEdit(mockEditorService.Object, "text");
+
+        InvokeOnKeyDown(ui, new KeyEventArgs(Keys.Control | Keys.Return));
+
+        Assert.True(dynamicUi._ctrlEnterPressed);
+        mockEditorService.Verify(e => e.CloseDropDown(), Times.Once());
+
+        // EndEdit resets _ctrlEnterPressed. Without this, a later Text getter access (e.g. during
+        // control teardown) would hit the Debug.Assert that expects a "\r\n" in the window text.
+        dynamicUi.EndEdit();
+    }
+
+    [Fact]
+    public void MultilineStringEditorUI_OnKeyDown_EnterWithoutControl_DoesNotSetCtrlEnterFlag()
+    {
+        using RichTextBox ui = CreateEditorUI();
+        dynamic dynamicUi = ui.TestAccessor.Dynamic;
+
+        InvokeOnKeyDown(ui, new KeyEventArgs(Keys.Return));
+
+        Assert.False(dynamicUi._ctrlEnterPressed);
+    }
+
+    [Fact]
+    public void MultilineStringEditorUI_OnKeyDown_ShowingWatermark_InvalidatesWithoutThrowing()
+    {
+        using RichTextBox ui = CreateEditorUI();
+        dynamic dynamicUi = ui.TestAccessor.Dynamic;
+
+        // With no handle and empty text, ShouldShowWatermark is exercised inside OnKeyDown.
+        InvokeOnKeyDown(ui, new KeyEventArgs(Keys.A));
+
+        Assert.False(dynamicUi._ctrlEnterPressed);
+    }
+
+    [Fact]
+    public void MultilineStringEditorUI_ProcessSurrogateFonts_NoSurrogatePairs_DoesNotThrow()
+    {
+        using RichTextBox ui = CreateEditorUI();
+
+        // ProcessSurrogateFonts is a public method on the private MultilineStringEditorUI type. Because the
+        // declaring type is not accessible, the DLR cannot bind to it dynamically, so it is invoked via
+        // reflection instead.
+        MethodInfo method = ui.GetType().GetMethod("ProcessSurrogateFonts", BindingFlags.Instance | BindingFlags.Public);
+        method.Invoke(ui, [0, 5]);
+    }
+
+    [Fact]
+    public void MultilineStringEditorUI_ShouldShowWatermark_NoHandle_ReturnsBoolean()
+    {
+        using RichTextBox ui = CreateEditorUI();
+        dynamic dynamicUi = ui.TestAccessor.Dynamic;
+
+        bool result = dynamicUi.ShouldShowWatermark;
+
+        Assert.IsType<bool>(result);
+    }
+
+    [Fact]
+    public void MultilineStringEditorUI_MinimumSize_Get_ReturnsConsistentCachedValue()
+    {
+        using RichTextBox ui = CreateEditorUI();
+
+        Size first = ui.MinimumSize;
+        Size second = ui.MinimumSize;
+
+        Assert.Equal(first, second);
+    }
+
+    [Fact]
+    public void MultilineStringEditorUI_Dispose_CalledTwice_DoesNotThrow()
+    {
+        RichTextBox ui = CreateEditorUI();
+
+        ui.Dispose();
+        ui.Dispose();
+    }
+
     private static bool InvokeProcessDialogKey(RichTextBox ui, Keys keyData)
     {
         // ProcessDialogKey is protected on TextBoxBase so it cannot be called directly from outside the class.
@@ -292,6 +397,24 @@ public class MultilineStringEditorTests
         return method is null
             ? throw new InvalidOperationException("ProcessDialogKey method not found.")
             : (bool)method.Invoke(ui, [keyData]);
+    }
+
+    private static bool InvokeIsInputKey(RichTextBox ui, Keys keyData)
+    {
+        // IsInputKey is protected on Control so it cannot be called directly from outside the class.
+        MethodInfo method = ui.GetType().GetMethod("IsInputKey", BindingFlags.Instance | BindingFlags.NonPublic);
+        return method is null
+            ? throw new InvalidOperationException("IsInputKey method not found.")
+            : (bool)method.Invoke(ui, [keyData]);
+    }
+
+    private static void InvokeOnKeyDown(RichTextBox ui, KeyEventArgs e)
+    {
+        // OnKeyDown is protected on Control so it cannot be called directly from outside the class.
+        MethodInfo method = ui.GetType().GetMethod("OnKeyDown", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("OnKeyDown method not found.");
+
+        method.Invoke(ui, [e]);
     }
 
     private static RichTextBox CreateEditorUI()
