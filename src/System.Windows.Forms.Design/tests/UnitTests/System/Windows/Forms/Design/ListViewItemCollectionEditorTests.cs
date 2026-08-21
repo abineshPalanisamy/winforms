@@ -67,6 +67,6 @@ public class ListViewItemCollectionEditorTests
         {
         }
 
-        public string CallGetDisplayText(object value) => GetDisplayText(value);
+        public string CallGetDisplayText(object? value) => GetDisplayText(value);
     }
 }
