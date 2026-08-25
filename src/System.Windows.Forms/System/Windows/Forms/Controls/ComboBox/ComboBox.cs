@@ -87,6 +87,11 @@ public partial class ComboBox : ListControl
     private bool _suppressNextWindowsPos;
     private bool _canFireLostFocus;
 
+    // Re-entrancy guard used while restoring the edit control's typed text/selection that the
+    // native ComboBox window procedure silently overwrites in response to WM_WINDOWPOSCHANGED.
+    // See the WM_WINDOWPOSCHANGED case in WndProc.
+    private bool _restoringEditTextOnWindowPosChanged;
+
     // When the user types a letter and drops the dropdown the ComboBox itself auto-searches the matching item and
     // selects the item in the edit thus changing the windowText. Hence we should Fire the TextChanged event in
     // such a scenario. The string below is used for checking the window Text before and after the dropdown.
@@ -4142,17 +4147,72 @@ public partial class ComboBox : ListControl
                 break;
 
             case PInvokeCore.WM_WINDOWPOSCHANGED:
-                if (!_suppressNextWindowsPos)
                 {
-                    base.WndProc(ref m);
-                }
+                    // The native ComboBox window procedure re-synchronizes the edit control's
+                    // displayed text to the combo's internally tracked current selection when it
+                    // processes WM_WINDOWPOSCHANGED (e.g., during a resize), which silently
+                    // overwrites any user-typed, uncommitted text in the editable portion of the
+                    // control. When there is no actual list selection (SelectedIndex == -1), the
+                    // current text is user-typed, so capture it - along with the current
+                    // selection - before forwarding the message natively, and restore it
+                    // afterward if it was altered. See https://github.com/dotnet/winforms/issues/9833.
+                    int selectedIndexBeforeResize = SelectedIndex;
+                    bool mayHaveTypedText = !_restoringEditTextOnWindowPosChanged
+                        && DropDownStyle != ComboBoxStyle.DropDownList
+                        && IsHandleCreated
+                        && selectedIndexBeforeResize == -1;
 
-                _suppressNextWindowsPos = false;
-                if (DropDownStyle == ComboBoxStyle.Simple
-                    && _nativeComboBaseline.IsCaptured
-                    && !_applyingModernComboLayout)
-                {
-                    ApplyModernComboLayout();
+                    string? typedTextBeforeResize = null;
+                    int selectionStartBeforeResize = 0;
+                    int selectionLengthBeforeResize = 0;
+                    if (mayHaveTypedText)
+                    {
+                        typedTextBeforeResize = WindowText;
+
+                        // Read the current selection with a single native CB_GETEDITSEL call
+                        // (rather than the separate calls the SelectionStart and SelectionLength
+                        // properties each make) to avoid a redundant round-trip to the native
+                        // control.
+                        int start = 0;
+                        int end = 0;
+                        PInvokeCore.SendMessage(this, PInvoke.CB_GETEDITSEL, (WPARAM)(&start), (LPARAM)(&end));
+                        selectionStartBeforeResize = start;
+                        selectionLengthBeforeResize = end - start;
+                    }
+
+                    if (!_suppressNextWindowsPos)
+                    {
+                        base.WndProc(ref m);
+                    }
+
+                    _suppressNextWindowsPos = false;
+                    if (DropDownStyle == ComboBoxStyle.Simple
+                        && _nativeComboBaseline.IsCaptured
+                        && !_applyingModernComboLayout)
+                    {
+                        ApplyModernComboLayout();
+                    }
+
+                    // SelectedIndex must be re-read here rather than reusing
+                    // selectedIndexBeforeResize: the native resync happens inside the
+                    // base.WndProc call above and could itself change the selection, so we must
+                    // check the post-call value to avoid clobbering a legitimate selection made
+                    // during that native processing.
+                    if (mayHaveTypedText
+                        && SelectedIndex == -1
+                        && !string.Equals(WindowText, typedTextBeforeResize, StringComparison.Ordinal))
+                    {
+                        _restoringEditTextOnWindowPosChanged = true;
+                        try
+                        {
+                            WindowText = typedTextBeforeResize ?? string.Empty;
+                            Select(selectionStartBeforeResize, selectionLengthBeforeResize);
+                        }
+                        finally
+                        {
+                            _restoringEditTextOnWindowPosChanged = false;
+                        }
+                    }
                 }
 
                 break;

@@ -2809,6 +2809,71 @@ public class ComboBoxTests
     }
 
     [WinFormsFact]
+    public void ComboBox_Resize_DropDownStyleWithUncommittedTypedText_PreservesText()
+    {
+        // Regression test for https://github.com/dotnet/winforms/issues/9833
+        // Resizing an editable ComboBox must not let the native ComboBox window procedure
+        // silently overwrite user-typed, uncommitted text with a matching list item's text.
+        using ComboBox control = new()
+        {
+            DropDownStyle = ComboBoxStyle.DropDown
+        };
+        control.Items.AddRange(["blah321", "apple", "banana", "cherry"]);
+        Assert.NotEqual(IntPtr.Zero, control.Handle);
+
+        control.Text = "bl";
+        control.SelectionStart = control.Text.Length;
+        control.SelectionLength = 0;
+
+        control.Width += 100;
+
+        Assert.Equal("bl", control.Text);
+        Assert.Equal(-1, control.SelectedIndex);
+        Assert.Equal(2, control.SelectionStart);
+        Assert.Equal(0, control.SelectionLength);
+    }
+
+    [WinFormsFact]
+    public void ComboBox_Resize_DropDownStyleWithSelectedItem_PreservesSelection()
+    {
+        // Ensures the fix for https://github.com/dotnet/winforms/issues/9833 only restores
+        // uncommitted typed text (SelectedIndex == -1) and does not interfere with a
+        // legitimate, already-selected list item.
+        using ComboBox control = new()
+        {
+            DropDownStyle = ComboBoxStyle.DropDown
+        };
+        control.Items.AddRange(["blah321", "apple", "banana", "cherry"]);
+        Assert.NotEqual(IntPtr.Zero, control.Handle);
+
+        control.SelectedIndex = 0;
+
+        control.Width += 100;
+
+        Assert.Equal("blah321", control.Text);
+        Assert.Equal(0, control.SelectedIndex);
+    }
+
+    [WinFormsFact]
+    public void ComboBox_Resize_DropDownListStyleWithUncommittedText_DoesNotThrow()
+    {
+        // Sanity check for https://github.com/dotnet/winforms/issues/9833: the fix is guarded
+        // to DropDownStyle != DropDownList, so DropDownList behavior must remain unaffected.
+        using ComboBox control = new()
+        {
+            DropDownStyle = ComboBoxStyle.DropDownList
+        };
+        control.Items.AddRange(["blah321", "apple", "banana", "cherry"]);
+        control.SelectedIndex = 1;
+        Assert.NotEqual(IntPtr.Zero, control.Handle);
+
+        control.Width += 100;
+
+        Assert.Equal("apple", control.Text);
+        Assert.Equal(1, control.SelectedIndex);
+    }
+
+    [WinFormsFact]
     public void ComboBox_GetAutoSizeMode_Invoke_ReturnsExpected()
     {
         using SubComboBox control = new();
