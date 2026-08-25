@@ -335,8 +335,13 @@ public partial class TreeView : Control
     {
         get
         {
-            SetStyle(ControlStyles.ApplyThemingImplicitly, true);
-
+            // Intentionally not calling SetStyle(ControlStyles.ApplyThemingImplicitly, true) here.
+            // Applying the "DarkMode_Explorer" visual style to the native tree-view window (which is what
+            // ApplyThemingImplicitly triggers, see Control.OnHandleCreated/OnParentHandleRecreated) makes
+            // comctl32 render the expand/collapse glyph as a chevron instead of the classic boxed +/-.
+            // TreeView still gets fully functional dark colors independently, since the background and
+            // text colors below are applied unconditionally whenever Application.IsDarkModeEnabled is true,
+            // regardless of this control style. See https://github.com/dotnet/winforms/issues/11932.
             CreateParams cp = base.CreateParams;
             cp.ClassName = PInvoke.WC_TREEVIEW;
 

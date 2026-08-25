@@ -183,6 +183,24 @@ public class TreeViewTests
         Assert.Equal(0, createdCallCount);
     }
 
+    [WinFormsFact]
+    public void TreeView_CreateParams_DoesNotOptIntoImplicitDarkModeTheming()
+    {
+        // Regression test for https://github.com/dotnet/winforms/issues/11932:
+        // TreeView must not participate in automatic "DarkMode_Explorer" visual style application
+        // (ControlStyles.ApplyThemingImplicitly), because comctl32 renders the expand/collapse glyph
+        // as a chevron instead of the classic boxed +/- whenever any visual style theme is associated
+        // with the native tree-view window. Accessing CreateParams must not flip this style on, and
+        // Control's internal DarkModeRequestState gate (which governs the automatic SetWindowTheme
+        // calls in Control.OnHandleCreated/OnParentHandleRecreated) must remain unset for TreeView.
+        using SubTreeView control = new();
+
+        _ = control.CreateParams;
+
+        Assert.False(control.GetStyle(ControlStyles.ApplyThemingImplicitly));
+        Assert.Null(control.DarkModeRequestState);
+    }
+
     [WinFormsTheory]
     [InlineData(BorderStyle.None, 0x56010007, 0)]
     [InlineData(BorderStyle.Fixed3D, 0x56010007, 0x200)]
