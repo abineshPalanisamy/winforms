@@ -1880,6 +1880,16 @@ public partial class TreeView : Control
 
         if (Application.IsDarkModeEnabled && DarkModeRequestState is true)
         {
+            // Apply the dark theme to the TreeView's own window, matching ListView/ComboBox/TabControl.
+            // Without this, the native SysTreeView32 control paints selection/hover highlighting using
+            // its legacy (non-Explorer-themed) logic, which can leave the selection highlight rectangle
+            // stuck on the previously selected node when the user quickly clicks a different node's
+            // checkbox. See https://github.com/dotnet/winforms/issues/11941.
+            _ = PInvoke.SetWindowTheme(
+                HWND,
+                $"{DarkModeIdentifier}_{ExplorerThemeIdentifier}",
+                null);
+
             HWND toolTipHandle = (HWND)PInvokeCore.SendMessage(
                 this,
                 PInvoke.TVM_GETTOOLTIPS,

@@ -7569,6 +7569,41 @@ public class TreeViewTests
         treeView.VisibleCount.Should().Be(5);
     }
 
+    [WinFormsFact]
+    public void TreeView_OnHandleCreated_DarkModeWithCheckBoxes_DoesNotThrow()
+    {
+        // Regression smoke test for https://github.com/dotnet/winforms/issues/11941
+        // ("[Dark Mode] Selection highlight doesn't move when quickly checking a node's
+        // checkbox in TreeView"). The fix applies the "DarkMode_Explorer" theme to the
+        // TreeView's own window (matching ListView/ComboBox/TabControl) so the native
+        // SysTreeView32 control correctly renders transient selection/focus highlighting in
+        // Dark Mode. Full verification of that native rendering effect requires an active
+        // ComCtl32 v6 visual styles context, which this headless unit test host does not have,
+        // so the fix was additionally validated with the interactive reproduction sample at
+        // artifacts\issue-reproductions\Issue-11941. This test guards against regressions
+        // (e.g. exceptions) in the Dark Mode + CheckBoxes handle-creation code path.
+        var applicationAccessor = typeof(Application).TestAccessor.Dynamic;
+        SystemColorMode? previousColorMode = applicationAccessor.s_colorMode;
+
+        try
+        {
+            applicationAccessor.s_colorMode = SystemColorMode.Dark;
+            Assert.True(Application.IsDarkModeEnabled);
+
+            using TreeView treeView = new() { CheckBoxes = true };
+            treeView.TestAccessor.Dynamic.DarkModeRequestState = true;
+
+            treeView.CreateControl();
+
+            Assert.True(treeView.IsHandleCreated);
+            Assert.True(treeView.CheckBoxes);
+        }
+        finally
+        {
+            applicationAccessor.s_colorMode = previousColorMode;
+        }
+    }
+
     private class SubTreeView : TreeView
     {
         public new bool CanEnableIme => base.CanEnableIme;
