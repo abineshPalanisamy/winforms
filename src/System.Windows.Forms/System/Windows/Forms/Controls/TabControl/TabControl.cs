@@ -75,6 +75,12 @@ public partial class TabControl : Control
     private bool _suspendDarkModeChange;
 
     /// <summary>
+    ///  Index of the tab header currently under the mouse pointer, used only to draw the dark-mode
+    ///  hover highlight (see <see cref="DrawHotTabHighlight(HDC)"/>). -1 when the mouse isn't over any tab.
+    /// </summary>
+    private int _hotTabIndex = -1;
+
+    /// <summary>
     ///  Constructs a TabBase object, usually as the base class for a TabStrip or TabControl.
     /// </summary>
     public TabControl()
@@ -1382,6 +1388,43 @@ public partial class TabControl : Control
     }
 
     /// <summary>
+    ///  Tracks which tab header is currently under the mouse pointer, so that
+    ///  <see cref="DrawHotTabHighlight(HDC)"/> can paint a hover highlight for it in dark mode. See the
+    ///  remarks on <see cref="DrawHotTabHighlight(HDC)"/> for why this tracking is necessary.
+    /// </summary>
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        if (Application.IsDarkModeEnabled && Appearance == TabAppearance.Normal)
+        {
+            int newHotTabIndex = TabIndexFromClientLocation(e.Location);
+            if (newHotTabIndex != _hotTabIndex)
+            {
+                InvalidateTab(_hotTabIndex);
+                _hotTabIndex = newHotTabIndex;
+                InvalidateTab(_hotTabIndex);
+            }
+        }
+
+        base.OnMouseMove(e);
+    }
+
+    /// <summary>
+    ///  Clears the hot-tab tracking used by <see cref="DrawHotTabHighlight(HDC)"/> (see the remarks on
+    ///  <see cref="DrawHotTabHighlight(HDC)"/>) once the mouse pointer leaves the control, so a stale
+    ///  hover highlight isn't left behind.
+    /// </summary>
+    protected override void OnMouseLeave(EventArgs e)
+    {
+        if (_hotTabIndex != -1)
+        {
+            InvalidateTab(_hotTabIndex);
+            _hotTabIndex = -1;
+        }
+
+        base.OnMouseLeave(e);
+    }
+
+    /// <summary>
     ///  We override this to get tabbing functionality.
     ///  If overriding this, remember to call base.onKeyDown.
     /// </summary>
@@ -1612,6 +1655,14 @@ public partial class TabControl : Control
         }
 
         _cachedDisplayRect = Rectangle.Empty;
+
+        // Removing a tab can shift the indices of the tabs after it, which would make a stale
+        // _hotTabIndex point at the wrong tab header until the next WM_MOUSEMOVE. Clear the
+        // hot-tab tracking here; it will be re-established (and repainted) on the next mouse move.
+        if (_hotTabIndex >= index)
+        {
+            _hotTabIndex = -1;
+        }
     }
 
     private void ResetItemSize()
@@ -1959,6 +2010,91 @@ public partial class TabControl : Control
         }
     }
 
+    /// <summary>
+    ///  <see langword="true"/> if <see cref="DrawHotTabHighlight(HDC)"/> would currently paint a
+    ///  highlight, used by the <see cref="PInvokeCore.WM_PAINT"/> handling in
+    ///  <see cref="WndProc(ref Message)"/> to decide whether the paint DC needs to be shared between the
+    ///  native paint and the highlight overlay.
+    /// </summary>
+    private bool NeedsHotTabHighlight =>
+        Application.IsDarkModeEnabled
+        && Enabled
+        && Appearance == TabAppearance.Normal
+        && _hotTabIndex >= 0
+        && _hotTabIndex < TabCount
+        && _hotTabIndex != SelectedIndex;
+
+    /// <summary>
+    ///  Draws a subtle hover highlight over the tab header currently under the mouse pointer, when
+    ///  running in dark mode.
+    /// </summary>
+    /// <param name="dc">
+    ///  The same device context the native control just used to paint itself (see the
+    ///  <see cref="PInvokeCore.WM_PAINT"/> handling in <see cref="WndProc(ref Message)"/>), so the
+    ///  highlight is layered on top within the same paint pass rather than through a second, separate
+    ///  paint operation.
+    /// </param>
+    /// <remarks>
+    ///  <para>
+    ///   In dark mode, <see cref="ApplyDarkModeOnDemand"/> themes this control's window with the
+    ///   "DarkMode::FileExplorerBannerContainer" sub-class so the tab strip is drawn with a dark
+    ///   background. Under visual styles, the native tab common control (SysTabControl32) does not send
+    ///   <c>NM_CUSTOMDRAW</c> notifications for its items, so there is no supported way to intervene in
+    ///   its native hot-track drawing. Because of this, this control tracks the hot tab itself (see
+    ///   <see cref="OnMouseMove(MouseEventArgs)"/> and <see cref="OnMouseLeave(EventArgs)"/>) and paints a
+    ///   highlight directly onto the tab strip immediately after each native repaint (see the
+    ///   <see cref="PInvokeCore.WM_PAINT"/> handling in <see cref="WndProc(ref Message)"/>).
+    ///  </para>
+    ///  <para>
+    ///   This only applies to the default (non-owner-drawn) <see cref="TabAppearance.Normal"/> appearance
+    ///   while <see cref="Application.IsDarkModeEnabled"/> is <see langword="true"/>; light mode continues
+    ///   to rely on the native visual-styles hot-track drawing, matching the pre-existing behavior.
+    ///  </para>
+    /// </remarks>
+    private void DrawHotTabHighlight(HDC dc)
+    {
+        if (!NeedsHotTabHighlight)
+        {
+            return;
+        }
+
+        Rectangle tabRect = GetTabRect(_hotTabIndex);
+
+        using Graphics g = Graphics.FromHdcInternal(dc);
+        using SolidBrush brush = new(Color.FromArgb(40, Color.White));
+        g.FillRectangle(brush, tabRect);
+    }
+
+    /// <summary>
+    ///  Returns the index of the tab header at <paramref name="clientLocation"/>, or -1 if the location
+    ///  does not fall within any tab header.
+    /// </summary>
+    private int TabIndexFromClientLocation(Point clientLocation)
+    {
+        int count = TabCount;
+        for (int i = 0; i < count; i++)
+        {
+            if (GetTabRect(i).Contains(clientLocation))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    ///  Invalidates the tab header at <paramref name="index"/> so it gets repainted (and, in dark mode,
+    ///  re-evaluated for the hover highlight in <see cref="DrawHotTabHighlight(HDC)"/>).
+    /// </summary>
+    private void InvalidateTab(int index)
+    {
+        if (index >= 0 && index < TabCount)
+        {
+            Invalidate(GetTabRect(index));
+        }
+    }
+
     private unsafe void WmReflectDrawItem(ref Message m)
     {
         DRAWITEMSTRUCT* dis = (DRAWITEMSTRUCT*)(nint)m.LParamInternal;
@@ -2075,6 +2211,34 @@ public partial class TabControl : Control
             case MessageId.WM_REFLECT_MEASUREITEM:
                 // We use TCM_SETITEMSIZE instead
                 break;
+
+            case PInvokeCore.WM_PAINT:
+                // The native tab control does not send NM_CUSTOMDRAW for its items under visual styles,
+                // so there is no supported way to intercept its native drawing to add a dark-mode hover
+                // highlight. Instead, we let the native control paint itself as usual, then layer the
+                // highlight for the currently hot tab (tracked via OnMouseMove/OnMouseLeave) directly on
+                // top, using the same paint DC (see DrawHotTabHighlight for why this matters).
+                if (NeedsHotTabHighlight)
+                {
+                    // Reuse the same HDC for the native paint and our overlay (rather than letting the
+                    // native paint validate/release its own DC and then opening a second, separate DC
+                    // afterward) so both draws happen within a single BeginPaint/EndPaint pass, matching
+                    // the pattern used by ComboBox.WndProc for its analogous native-paint-plus-overpaint
+                    // scenario and avoiding a visible flicker between the two draws.
+                    bool useBeginPaint = m.WParamInternal == 0u;
+                    using var paintScope = useBeginPaint ? new BeginPaintScope(HWND) : default;
+                    HDC dc = useBeginPaint ? paintScope! : (HDC)(nint)m.WParamInternal;
+
+                    m.WParamInternal = (WPARAM)dc;
+                    base.WndProc(ref m);
+                    DrawHotTabHighlight(dc);
+                }
+                else
+                {
+                    base.WndProc(ref m);
+                }
+
+                return;
 
             case PInvokeCore.WM_NOTIFY:
             case MessageId.WM_REFLECT_NOTIFY:

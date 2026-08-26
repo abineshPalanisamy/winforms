@@ -6,6 +6,7 @@
 using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms.TestUtilities;
+using Microsoft.DotNet.RemoteExecutor;
 using Moq;
 using Point = System.Drawing.Point;
 using Size = System.Drawing.Size;
@@ -5731,6 +5732,109 @@ public class TabControlTests
 
         exception.Should().BeNull();
     }
+
+    // Regression test for https://github.com/dotnet/winforms/issues/14056:
+    // TabControl's dark-mode theme application (ApplyDarkModeOnDemand) themes the control's own
+    // native window with "DarkMode::FileExplorerBannerContainer" so the tab strip background is
+    // dark, but the native tab common control (SysTabControl32) does not send NM_CUSTOMDRAW
+    // notifications for its items under visual styles, so there is no supported way to restore
+    // native hot-track (hover) drawing for tab headers in Dark Mode. TabControl now tracks the
+    // hot tab itself (see OnMouseMove/OnMouseLeave) and paints a highlight for it after each
+    // native repaint (see the WM_PAINT handling in WndProc / DrawHotTabHighlight).
+    //
+    // Actually exercising the rendered hover highlight requires a human to observe pixels and
+    // cannot be asserted deterministically in a unit test; that has been manually verified. This
+    // test instead guards against exceptions/regressions in the handle-creation code path that
+    // invokes ApplyDarkModeOnDemand() while Dark Mode is enabled. It is isolated in a remote
+    // process (mirroring Application_SetColorMode_PlausibilityTests in ApplicationTests.cs) so
+    // that enabling Dark Mode does not leak into other tests running in the same test host
+    // process.
+#pragma warning disable SYSLIB5002 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+
+    [Fact]
+    public void TabControl_ApplyDarkModeOnDemand_HandleCreated_DoesNotThrow()
+    {
+        using RemoteInvokeHandle handle = RemoteExecutor.Invoke(() =>
+        {
+            if (SystemInformation.HighContrast)
+            {
+                // We don't run this test in HighContrast mode.
+                return;
+            }
+
+            Application.SetColorMode(SystemColorMode.Dark);
+
+            using TabControl control = new();
+            using TabPage page1 = new("Tab 1");
+            using TabPage page2 = new("Tab 2");
+            control.TabPages.Add(page1);
+            control.TabPages.Add(page2);
+
+            Action act = control.CreateControl;
+
+            act.Should().NotThrow();
+            Assert.True(control.IsHandleCreated);
+        });
+
+        Assert.Equal(RemoteExecutor.SuccessExitCode, handle.ExitCode);
+    }
+
+    // Regression test for the hover-highlight portion of https://github.com/dotnet/winforms/issues/14056.
+    // Verifies that, in Dark Mode, moving the mouse over a tab header updates the internal hot-tab
+    // index (the state that DrawHotTabHighlight relies on to know which tab to highlight), that
+    // leaving the control resets it, and that forcing a repaint while a tab is tracked as hot
+    // (exercising the WM_PAINT -> DrawHotTabHighlight code path end-to-end) does not throw. Full
+    // pixel-level verification that the highlight is actually visible remains a manual/visual
+    // check (performed and confirmed for this fix).
+    [Fact]
+    public void TabControl_OnMouseMove_DarkMode_TracksHotTabIndexAndDoesNotThrow()
+    {
+        using RemoteInvokeHandle handle = RemoteExecutor.Invoke(() =>
+        {
+            if (SystemInformation.HighContrast)
+            {
+                // We don't run this test in HighContrast mode.
+                return;
+            }
+
+            Application.SetColorMode(SystemColorMode.Dark);
+
+            using Form form = new();
+            using TabControl control = new();
+            using TabPage page1 = new("Tab 1");
+            using TabPage page2 = new("Tab 2");
+            control.TabPages.Add(page1);
+            control.TabPages.Add(page2);
+            form.Controls.Add(control);
+            form.Show();
+
+            dynamic accessor = control.TestAccessor.Dynamic;
+
+            // No tab should be tracked as hot before any mouse movement.
+            Assert.Equal(-1, (int)accessor._hotTabIndex);
+
+            Rectangle tab0Rect = control.GetTabRect(0);
+            Point insideTab0 = new(tab0Rect.X + 2, tab0Rect.Y + 2);
+
+            Action moveOverTab0 = () =>
+                accessor.OnMouseMove(new MouseEventArgs(MouseButtons.None, 0, insideTab0.X, insideTab0.Y, 0));
+            moveOverTab0.Should().NotThrow();
+            Assert.Equal(0, (int)accessor._hotTabIndex);
+
+            // Force a repaint while a tab is tracked as hot, to exercise the WM_PAINT ->
+            // DrawHotTabHighlight code path end-to-end without throwing.
+            Action refresh = control.Refresh;
+            refresh.Should().NotThrow();
+
+            Action leave = () => accessor.OnMouseLeave(EventArgs.Empty);
+            leave.Should().NotThrow();
+            Assert.Equal(-1, (int)accessor._hotTabIndex);
+        });
+
+        Assert.Equal(RemoteExecutor.SuccessExitCode, handle.ExitCode);
+    }
+
+#pragma warning restore SYSLIB5002
 
     private class SubTabPage : TabPage
     {
