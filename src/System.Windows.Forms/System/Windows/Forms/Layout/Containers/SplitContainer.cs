@@ -52,12 +52,10 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     // Properties used using drawing a moving splitter
     private int _lastDrawSplit = 1;
     private int _initialSplitterDistance;
-    private int? _lastNotifiedSplitterDistance;
     private Point _anchor = Point.Empty;
     private bool _splitBegin;
     private bool _splitMove;
     private bool _splitBreak;
-    private bool _useLiveSplitterResize;
 
     // Split Cursor
     private Cursor? _overrideCursor;
@@ -90,18 +88,6 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
 
     // Initialization flag for ISupportInitialize
     private bool _initializing;
-
-    private bool UseLiveSplitterResize
-        => EffectiveVisualStylesMode >= VisualStylesMode.Net11;
-
-    private bool IsSplitterResizeActive
-        => _splitterClick || _splitBegin;
-
-    private bool IsLiveSplitterResizeActive
-        => _useLiveSplitterResize && IsSplitterResizeActive;
-
-    private static bool IsSplitterMoveKey(Keys keyData)
-        => keyData is Keys.Right or Keys.Down or Keys.Left or Keys.Up;
 
     public SplitContainer()
     {
@@ -647,99 +633,90 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     [DefaultValue(50)]
     public int SplitterDistance
     {
-        get => _splitDistance;
-        set => SetSplitterDistance(value, raiseSplitterMoved: true);
-    }
-
-    private void SetSplitterDistance(int value, bool raiseSplitterMoved)
-    {
-        if (value == SplitterDistance)
+        get
         {
-            return;
+            return _splitDistance;
         }
-
-        ArgumentOutOfRangeException.ThrowIfNegative(value, nameof(SplitterDistance));
-
-        try
+        set
         {
-            _setSplitterDistance = true;
-
-            if (Orientation == Orientation.Vertical)
+            if (value != SplitterDistance)
             {
-                if (value < Panel1MinSize)
+                ArgumentOutOfRangeException.ThrowIfNegative(value, nameof(SplitterDistance));
+
+                try
                 {
-                    value = Panel1MinSize;
-                }
+                    _setSplitterDistance = true;
 
-                if (value + SplitterWidthInternal > Width - Panel2MinSize)
-                {
-                    value = Width - Panel2MinSize - SplitterWidthInternal;
-                }
-
-                if (value < 0)
-                {
-                    throw new InvalidOperationException(SR.SplitterDistanceNotAllowed);
-                }
-
-                _splitDistance = value;
-                _splitterDistance = value;
-                Panel1.WidthInternal = SplitterDistance;
-            }
-            else
-            {
-                if (value < Panel1MinSize)
-                {
-                    value = Panel1MinSize;
-                }
-
-                if (value + SplitterWidthInternal > Height - Panel2MinSize)
-                {
-                    value = Height - Panel2MinSize - SplitterWidthInternal;
-                }
-
-                if (value < 0)
-                {
-                    throw new InvalidOperationException(SR.SplitterDistanceNotAllowed);
-                }
-
-                _splitDistance = value;
-                _splitterDistance = value;
-                Panel1.HeightInternal = SplitterDistance;
-            }
-
-            switch (_fixedPanel)
-            {
-                case FixedPanel.Panel1:
-                    _panelSize = SplitterDistance;
-                    break;
-                case FixedPanel.Panel2:
                     if (Orientation == Orientation.Vertical)
                     {
-                        _panelSize = Width - SplitterDistance - SplitterWidthInternal;
+                        if (value < Panel1MinSize)
+                        {
+                            value = Panel1MinSize;
+                        }
+
+                        if (value + SplitterWidthInternal > Width - Panel2MinSize)
+                        {
+                            value = Width - Panel2MinSize - SplitterWidthInternal;
+                        }
+
+                        if (value < 0)
+                        {
+                            throw new InvalidOperationException(SR.SplitterDistanceNotAllowed);
+                        }
+
+                        _splitDistance = value;
+                        _splitterDistance = value;
+                        Panel1.WidthInternal = SplitterDistance;
                     }
                     else
                     {
-                        _panelSize = Height - SplitterDistance - SplitterWidthInternal;
+                        if (value < Panel1MinSize)
+                        {
+                            value = Panel1MinSize;
+                        }
+
+                        if (value + SplitterWidthInternal > Height - Panel2MinSize)
+                        {
+                            value = Height - Panel2MinSize - SplitterWidthInternal;
+                        }
+
+                        if (value < 0)
+                        {
+                            throw new InvalidOperationException(SR.SplitterDistanceNotAllowed);
+                        }
+
+                        _splitDistance = value;
+                        _splitterDistance = value;
+                        Panel1.HeightInternal = SplitterDistance;
                     }
 
-                    break;
+                    switch (_fixedPanel)
+                    {
+                        case FixedPanel.Panel1:
+                            _panelSize = SplitterDistance;
+                            break;
+                        case FixedPanel.Panel2:
+                            if (Orientation == Orientation.Vertical)
+                            {
+                                _panelSize = Width - SplitterDistance - SplitterWidthInternal;
+                            }
+                            else
+                            {
+                                _panelSize = Height - SplitterDistance - SplitterWidthInternal;
+                            }
+
+                            break;
+                    }
+
+                    UpdateSplitter();
+                }
+                finally
+                {
+                    _setSplitterDistance = false;
+                }
+
+                OnSplitterMoved(new SplitterEventArgs(SplitterRectangle.X + SplitterRectangle.Width / 2, SplitterRectangle.Y + SplitterRectangle.Height / 2, SplitterRectangle.X, SplitterRectangle.Y));
             }
-
-            UpdateSplitter();
-        }
-        finally
-        {
-            _setSplitterDistance = false;
-        }
-
-        if (raiseSplitterMoved)
-        {
-            if (IsSplitterResizeActive)
-            {
-                _lastNotifiedSplitterDistance = _splitDistance;
-            }
-
-            RaiseSplitterMoved();
         }
     }
 
@@ -751,7 +728,7 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
         }
         set
         {
-            SetSplitterDistance(value, raiseSplitterMoved: true);
+            SplitterDistance = value;
         }
     }
 
@@ -963,29 +940,23 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
             }
 
             // valid Keys that move the splitter...
-            if (_splitterFocused && IsSplitterMoveKey(e.KeyData))
+            if (_splitterFocused
+                && (e.KeyData == Keys.Right || e.KeyData == Keys.Down || e.KeyData == Keys.Left || e.KeyData == Keys.Up))
             {
-                if (!_splitBegin)
-                {
-                    _initialSplitterDistance = SplitterDistanceInternal;
-                    _lastNotifiedSplitterDistance = null;
-                    _useLiveSplitterResize = UseLiveSplitterResize;
-                }
-
                 if (_splitBegin)
                 {
                     _splitMove = true;
                 }
 
                 // left OR up
-                if (e.KeyData is Keys.Left or Keys.Up)
+                if (_splitterFocused && (e.KeyData == Keys.Left || e.KeyData == Keys.Up))
                 {
                     _splitterDistance -= SplitterIncrement;
                     _splitterDistance = (_splitterDistance < Panel1MinSize) ? _splitterDistance + SplitterIncrement : Math.Max(_splitterDistance, _borderSize);
                 }
 
                 // right OR down
-                if (e.KeyData is Keys.Right or Keys.Down)
+                if (_splitterFocused && (e.KeyData == Keys.Right || e.KeyData == Keys.Down))
                 {
                     _splitterDistance += SplitterIncrement;
                     if (Orientation == Orientation.Vertical)
@@ -1003,19 +974,8 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
                     _splitBegin = true;
                 }
 
-                if (_useLiveSplitterResize)
-                {
-                    Rectangle r = CalcSplitLine(_splitterDistance, 0);
-                    SplitterCancelEventArgs se = new(
-                        Left + SplitterRectangle.X + SplitterRectangle.Width / 2,
-                        Top + SplitterRectangle.Y + SplitterRectangle.Height / 2,
-                        r.X,
-                        r.Y);
-                    ProcessSplitterMoving(se);
-                }
-
                 // draw Helper start
-                else if (_splitBegin && !_splitMove)
+                if (_splitBegin && !_splitMove)
                 {
                     _initialSplitterDistance = SplitterDistanceInternal;
                     DrawSplitBar(DrawStart);
@@ -1029,7 +989,11 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
                     int xSplit = r.X;
                     int ySplit = r.Y;
                     SplitterCancelEventArgs se = new(Left + SplitterRectangle.X + SplitterRectangle.Width / 2, Top + SplitterRectangle.Y + SplitterRectangle.Height / 2, xSplit, ySplit);
-                    ProcessSplitterMoving(se);
+                    OnSplitterMoving(se);
+                    if (se.Cancel)
+                    {
+                        SplitEnd(false);
+                    }
                 }
             } // End Valid Keys....
         } // End SplitterFixed Check...
@@ -1043,22 +1007,13 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
         base.OnKeyUp(e);
         if (_splitBegin && IsSplitterMovable)
         {
-            if (_splitterFocused && IsSplitterMoveKey(e.KeyData))
+            if (_splitterFocused
+                && (e.KeyData == Keys.Right || e.KeyData == Keys.Down || e.KeyData == Keys.Left || e.KeyData == Keys.Up))
             {
-                if (_useLiveSplitterResize)
-                {
-                    RaiseSplitterMovedAfterLiveResize();
-                }
-                else
-                {
-                    DrawSplitBar(DrawEnd);
-                    ApplySplitterDistance();
-                }
-
+                DrawSplitBar(DrawEnd);
+                ApplySplitterDistance();
                 _splitBegin = false;
                 _splitMove = false;
-                _lastNotifiedSplitterDistance = null;
-                _useLiveSplitterResize = false;
             }
         }
 
@@ -1147,7 +1102,11 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
                 int xSplit = r.X;
                 int ySplit = r.Y;
                 SplitterCancelEventArgs se = new(x, y, xSplit, ySplit);
-                ProcessSplitterMoving(se);
+                OnSplitterMoving(se);
+                if (se.Cancel)
+                {
+                    SplitEnd(false);
+                }
             }
         }
     }
@@ -1278,26 +1237,6 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
         ((SplitterEventHandler?)Events[s_eventMoved])?.Invoke(this, e);
     }
 
-    private void RaiseSplitterMoved()
-    {
-        Rectangle splitterRectangle = SplitterRectangle;
-        OnSplitterMoved(
-            new SplitterEventArgs(
-                splitterRectangle.X + (splitterRectangle.Width / 2),
-                splitterRectangle.Y + (splitterRectangle.Height / 2),
-                splitterRectangle.X,
-                splitterRectangle.Y));
-    }
-
-    private void RaiseSplitterMovedAfterLiveResize()
-    {
-        if (_splitDistance != _initialSplitterDistance
-            && _lastNotifiedSplitterDistance != _splitDistance)
-        {
-            RaiseSplitterMoved();
-        }
-    }
-
     [EditorBrowsable(EditorBrowsableState.Advanced)]
     protected override void OnRightToLeftChanged(EventArgs e)
     {
@@ -1396,27 +1335,11 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     ///  Sets the split position to be the current split size. This is called
     ///  by splitEdit
     /// </summary>
-    private void ApplySplitterDistance(bool raiseSplitterMoved = true)
+    private void ApplySplitterDistance()
     {
-        bool suspendRedraw = IsLiveSplitterResizeActive && IsHandleCreated;
-        if (suspendRedraw)
+        using (new Layout.LayoutTransaction(this, this, "SplitterDistance", false))
         {
-            BeginUpdateInternal();
-        }
-
-        try
-        {
-            using (new Layout.LayoutTransaction(this, this, "SplitterDistance", false))
-            {
-                SetSplitterDistance(_splitterDistance, raiseSplitterMoved);
-            }
-        }
-        finally
-        {
-            if (suspendRedraw)
-            {
-                EndUpdateInternal(invalidate: false);
-            }
+            SplitterDistanceInternal = _splitterDistance;
         }
 
         // We need to invalidate when we have transparent background.
@@ -1441,60 +1364,6 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
         {
             _splitterRect.Y = Location.Y + SplitterDistanceInternal;
         }
-
-        if (suspendRedraw)
-        {
-            RedrawAfterLiveSplitterResize();
-        }
-    }
-
-    private unsafe void RedrawAfterLiveSplitterResize()
-    {
-        if (!IsHandleCreated)
-        {
-            return;
-        }
-
-        RedrawPanelAfterLiveSplitterResize(Panel1);
-        RedrawPanelAfterLiveSplitterResize(Panel2);
-
-        REDRAW_WINDOW_FLAGS flags = REDRAW_WINDOW_FLAGS.RDW_INVALIDATE
-            | REDRAW_WINDOW_FLAGS.RDW_ERASE
-            | REDRAW_WINDOW_FLAGS.RDW_NOCHILDREN
-            | REDRAW_WINDOW_FLAGS.RDW_UPDATENOW;
-        if (BorderStyle != BorderStyle.None)
-        {
-            flags |= REDRAW_WINDOW_FLAGS.RDW_FRAME;
-        }
-
-        PInvoke.RedrawWindow(
-            this,
-            lprcUpdate: null,
-            HRGN.Null,
-            flags);
-    }
-
-    private static unsafe void RedrawPanelAfterLiveSplitterResize(SplitterPanel panel)
-    {
-        if (!panel.IsHandleCreated)
-        {
-            return;
-        }
-
-        REDRAW_WINDOW_FLAGS flags = REDRAW_WINDOW_FLAGS.RDW_INVALIDATE
-            | REDRAW_WINDOW_FLAGS.RDW_ERASE
-            | REDRAW_WINDOW_FLAGS.RDW_ALLCHILDREN
-            | REDRAW_WINDOW_FLAGS.RDW_UPDATENOW;
-        if (panel.BorderStyle != BorderStyle.None)
-        {
-            flags |= REDRAW_WINDOW_FLAGS.RDW_FRAME;
-        }
-
-        PInvoke.RedrawWindow(
-            panel,
-            lprcUpdate: null,
-            HRGN.Null,
-            flags);
     }
 
     /// <summary>
@@ -1635,17 +1504,17 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
             case Orientation.Vertical:
                 if (RightToLeft == RightToLeft.No)
                 {
-                    size = Math.Max(_initialSplitterDistance + delta, _borderSize);
+                    size = Math.Max(Panel1.Width + delta, _borderSize);
                 }
                 else
                 {
                     // In RTL negative delta actually means increasing the size....
-                    size = Math.Max(_initialSplitterDistance - delta, _borderSize);
+                    size = Math.Max(Panel1.Width - delta, _borderSize);
                 }
 
                 break;
             case Orientation.Horizontal:
-                size = Math.Max(_initialSplitterDistance + delta, _borderSize);
+                size = Math.Max(Panel1.Height + delta, _borderSize);
                 break;
         }
 
@@ -1720,16 +1589,6 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
             _splitterRect.Width = Width;
             _splitterRect.Height = SplitterWidthInternal;
         }
-    }
-
-    private void UpdateSplitterRect(bool vertical)
-    {
-        if (!IsLiveSplitterResizeActive)
-        {
-            RepaintSplitterRect();
-        }
-
-        SetSplitterRect(vertical);
     }
 
     /// <summary>
@@ -2239,21 +2098,15 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     private void SplitBegin(int x, int y)
     {
         _anchor = new Point(x, y);
-        _initialSplitterDistance = SplitterDistanceInternal;
-        _lastNotifiedSplitterDistance = null;
         _splitterDistance = GetSplitterDistance(x, y);
-        _useLiveSplitterResize = UseLiveSplitterResize;
+        _initialSplitterDistance = _splitterDistance;
 
         _splitContainerMessageFilter ??= new SplitContainerMessageFilter(this);
 
         Application.AddMessageFilter(_splitContainerMessageFilter);
 
         Capture = true;
-
-        if (!_useLiveSplitterResize)
-        {
-            DrawSplitBar(DrawStart);
-        }
+        DrawSplitBar(DrawStart);
     }
 
     /// <summary>
@@ -2282,24 +2135,7 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
             }
         }
 
-        if (!_useLiveSplitterResize)
-        {
-            DrawSplitBar(DrawMove);
-        }
-    }
-
-    private void ProcessSplitterMoving(SplitterCancelEventArgs e)
-    {
-        OnSplitterMoving(e);
-
-        if (e.Cancel)
-        {
-            SplitEnd(false);
-        }
-        else if (_useLiveSplitterResize && _splitDistance != _splitterDistance)
-        {
-            ApplySplitterDistance(raiseSplitterMoved: false);
-        }
+        DrawSplitBar(DrawMove);
     }
 
     /// <summary>
@@ -2307,11 +2143,7 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     /// </summary>
     private void SplitEnd(bool accept)
     {
-        if (!_useLiveSplitterResize)
-        {
-            DrawSplitBar(DrawEnd);
-        }
-
+        DrawSplitBar(DrawEnd);
         if (_splitContainerMessageFilter is not null)
         {
             Application.RemoveMessageFilter(_splitContainerMessageFilter);
@@ -2320,44 +2152,15 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
 
         if (accept)
         {
-            if (_splitDistance != _splitterDistance)
-            {
-                ApplySplitterDistance(raiseSplitterMoved: !_useLiveSplitterResize);
-            }
-
-            if (_useLiveSplitterResize)
-            {
-                RaiseSplitterMovedAfterLiveResize();
-            }
+            ApplySplitterDistance();
         }
-        else
+        else if (_splitterDistance != _initialSplitterDistance)
         {
-            _splitterDistance = _initialSplitterDistance;
-            if (_splitDistance != _initialSplitterDistance)
-            {
-                ApplySplitterDistance(raiseSplitterMoved: false);
-            }
-
-            if (_lastNotifiedSplitterDistance is int lastNotifiedSplitterDistance
-                && lastNotifiedSplitterDistance != _splitDistance)
-            {
-                RaiseSplitterMoved();
-            }
-
-            if (_splitterClick)
-            {
-                Capture = false;
-                _splitterClick = false;
-                _splitterDrag = false;
-            }
-
-            _splitBegin = false;
-            _splitMove = false;
+            _splitterClick = false;
+            _splitterDistance = SplitterDistanceInternal = _initialSplitterDistance;
         }
 
         _anchor = Point.Empty;
-        _lastNotifiedSplitterDistance = null;
-        _useLiveSplitterResize = false;
     }
 
     /// <summary>
@@ -2394,7 +2197,8 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
                     Panel2.Location = new Point(0, 0);
                 }
 
-                UpdateSplitterRect(vertical: true);
+                RepaintSplitterRect();
+                SetSplitterRect(true /*Vertical*/);
                 if (!_resizeCalled)
                 {
                     _ratioWidth = (Width / (double)(Panel1.Width) > 0) ? Width / (double)(Panel1.Width) : _ratioWidth;
@@ -2433,7 +2237,8 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
                 Panel2.Size = new Size(Width, Height - panel2Start);
                 Panel2.Location = new Point(0, panel2Start);
 
-                UpdateSplitterRect(vertical: false);
+                RepaintSplitterRect();
+                SetSplitterRect(false/*Horizontal*/);
 
                 if (!_resizeCalled)
                 {
