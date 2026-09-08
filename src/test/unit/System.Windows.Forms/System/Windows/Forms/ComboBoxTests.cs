@@ -356,7 +356,8 @@ public class ComboBoxTests
             highContrastEnabled: false,
             clientAreaAnimationEnabled: false,
             previous.KeyboardCuesVisible,
-            focusBorderMetrics: new Size(3, 3));
+            focusBorderMetrics: new Size(3, 3),
+            SystemColorMode.Classic);
 
         try
         {
@@ -1633,14 +1634,16 @@ public class ComboBoxTests
             highContrastEnabled: false,
             previous.ClientAreaAnimationEnabled,
             previous.KeyboardCuesVisible,
-            focusBorderMetrics: new Size(1, 1));
+            focusBorderMetrics: new Size(1, 1),
+            SystemColorMode.Classic);
         SystemVisualSettings changed = new(
             previous.AccentColor,
             previous.TextScaleFactor,
             highContrastEnabled: false,
             previous.ClientAreaAnimationEnabled,
             previous.KeyboardCuesVisible,
-            focusBorderMetrics: new Size(2, 2));
+            focusBorderMetrics: new Size(2, 2),
+            SystemColorMode.Classic);
 
         try
         {

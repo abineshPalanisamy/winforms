@@ -3,6 +3,8 @@ override System.Windows.Forms.GroupBox.OnPaintBackground(System.Windows.Forms.Pa
 static System.Windows.Forms.Application.SystemVisualSettings.get -> System.Windows.Forms.SystemVisualSettings!
 static System.Windows.Forms.Application.SystemVisualSettingsChanged -> System.Windows.Forms.SystemVisualSettingsChangedEventHandler?
 System.Windows.Forms.PropertyGrid.VisualStylesModeChanged -> System.EventHandler?
+System.Windows.Forms.SystemVisualSettings.SystemColorMode.get -> System.Windows.Forms.SystemColorMode
+System.Windows.Forms.SystemVisualSettingsCategories.SystemColorMode = 64 -> System.Windows.Forms.SystemVisualSettingsCategories
 virtual System.Windows.Forms.Control.OnSystemVisualSettingsChanged(System.Windows.Forms.SystemVisualSettingsChangedEventArgs! e) -> void
 System.Windows.Forms.Control.SystemVisualSettingsChanged -> System.Windows.Forms.SystemVisualSettingsChangedEventHandler?
 System.Windows.Forms.DataGridViewCellStyle.SortGlyphColor.get -> System.Drawing.Color

@@ -480,7 +480,7 @@ public sealed partial class Application
             : SystemColorMode.Classic;
 
     // Returns 0 if dark mode is enabled in the system, otherwise -1 (SystemDarkModeDisabled)
-    private static int GetSystemColorModeInternal()
+    internal static int GetSystemColorModeInternal()
     {
         if (!IsSystemDarkModeAvailable)
         {

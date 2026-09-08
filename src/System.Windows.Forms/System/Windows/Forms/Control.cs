@@ -8735,7 +8735,9 @@ public unsafe partial class Control :
 
         Properties.AddOrRemoveValue(s_systemVisualSettingsProperty, e.NewSettings);
 
-        if ((e.Changed & SystemVisualSettingsCategories.AccentColor) != 0)
+        if ((e.Changed
+            & (SystemVisualSettingsCategories.AccentColor
+                | SystemVisualSettingsCategories.SystemColorMode)) != 0)
         {
             Invalidate();
         }

@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Drawing;
@@ -40,7 +40,8 @@ public class SystemVisualSettingsTests
             true,
             false,
             true,
-            new Size(2, 5));
+            new Size(2, 5),
+            SystemColorMode.Classic);
 
         SystemVisualSettings snapshot = SystemVisualSettingsTracker.CreateSnapshot(values);
 
@@ -695,7 +696,8 @@ public class SystemVisualSettingsTests
             highContrastEnabled,
             clientAreaAnimationEnabled,
             keyboardCuesVisible,
-            focusBorderMetrics ?? new Size(1, 1));
+            focusBorderMetrics ?? new Size(1, 1),
+            SystemColorMode.Classic);
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static WeakReference CreateDisposedFormWithInstanceSubscription()
@@ -746,7 +748,7 @@ public class SystemVisualSettingsTests
     private sealed class SubSystemVisualSettingsControl : Control
     {
         public void RaiseSystemVisualSettingsChanged(SystemVisualSettingsChangedEventArgs e)
-            => base.OnSystemVisualSettingsChanged(e);
+            => OnSystemVisualSettingsChanged(e);
 
         public void OnInstanceSystemVisualSettingsChanged(object? sender, SystemVisualSettingsChangedEventArgs e)
         {
@@ -795,7 +797,7 @@ public class SystemVisualSettingsTests
         public int VisualStylesTransitionCount { get; private set; }
 
         public void RaiseSystemVisualSettingsChanged(SystemVisualSettingsChangedEventArgs e)
-            => base.OnSystemVisualSettingsChanged(e);
+            => OnSystemVisualSettingsChanged(e);
 
         public void ResetVisualStylesTransitionCount()
             => VisualStylesTransitionCount = 0;
@@ -842,13 +844,13 @@ public class SystemVisualSettingsTests
         internal void Dispatch(uint message)
         {
             Message messageToDispatch = Message.Create(Handle, (int)message, IntPtr.Zero, IntPtr.Zero);
-            base.WndProc(ref messageToDispatch);
+            WndProc(ref messageToDispatch);
         }
 
         internal void Dispatch(int message)
         {
             Message messageToDispatch = Message.Create(Handle, message, IntPtr.Zero, IntPtr.Zero);
-            base.WndProc(ref messageToDispatch);
+            WndProc(ref messageToDispatch);
         }
     }
 

@@ -232,6 +232,10 @@ public partial class TextBoxBaseTests
         BorderStyle borderStyle,
         int logicalBorderPadding)
     {
+        using SystemVisualSettingsTestScope scope = new(
+        clientAreaAnimationEnabled: true,
+        focusBorderMetrics: new Size(1, 1));
+
         using SubTextBox control = new()
         {
             BorderStyle = borderStyle,
@@ -306,14 +310,16 @@ public partial class TextBoxBaseTests
             highContrastEnabled: false,
             clientAreaAnimationEnabled: true,
             keyboardCuesVisible: false,
-            focusBorderMetrics: new Size(1, 1));
+            focusBorderMetrics: new Size(1, 1),
+            SystemColorMode.Classic);
         SystemVisualSettings newSettings = new(
             Color.RoyalBlue,
             1f,
             highContrastEnabled: false,
             clientAreaAnimationEnabled: false,
             keyboardCuesVisible: false,
-            focusBorderMetrics: new Size(1, 1));
+            focusBorderMetrics: new Size(1, 1),
+            SystemColorMode.Classic);
 
         parent.RaiseSystemVisualSettingsChanged(
             new SystemVisualSettingsChangedEventArgs(
@@ -335,14 +341,16 @@ public partial class TextBoxBaseTests
             highContrastEnabled: false,
             previous.ClientAreaAnimationEnabled,
             previous.KeyboardCuesVisible,
-            previous.FocusBorderMetrics);
+            previous.FocusBorderMetrics,
+            SystemColorMode.Classic);
         SystemVisualSettings scaled = new(
             previous.AccentColor,
             1.5f,
             highContrastEnabled: false,
             previous.ClientAreaAnimationEnabled,
             previous.KeyboardCuesVisible,
-            previous.FocusBorderMetrics);
+            previous.FocusBorderMetrics,
+            SystemColorMode.Classic);
 
         try
         {
@@ -8541,7 +8549,7 @@ public partial class TextBoxBaseTests
             set => base.FontHeight = value;
         }
 
-        public Padding GetVisualStylesPaddingCore(bool includeScrollbars) => base.GetVisualStylesPadding(includeScrollbars);
+        public Padding GetVisualStylesPaddingCore(bool includeScrollbars) => GetVisualStylesPadding(includeScrollbars);
 
         public Padding GetScrollBarPaddingCore() => base.GetScrollBarPadding();
 
@@ -8655,10 +8663,10 @@ public partial class TextBoxBaseTests
         public new CreateParams CreateParams => base.CreateParams;
 
         public Padding GetVisualStylesPaddingCore(bool includeScrollbars)
-            => base.GetVisualStylesPadding(includeScrollbars);
+            => GetVisualStylesPadding(includeScrollbars);
 
         public Padding GetScrollBarPaddingCore()
-            => base.GetScrollBarPadding();
+            => GetScrollBarPadding();
     }
 
     private class SubMaskedTextBox : MaskedTextBox

@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Drawing;
@@ -22,7 +22,8 @@ public sealed class SystemVisualSettings
         bool highContrastEnabled,
         bool clientAreaAnimationEnabled,
         bool keyboardCuesVisible,
-        Size focusBorderMetrics)
+        Size focusBorderMetrics,
+        SystemColorMode systemColorMode)
     {
         AccentColor = accentColor;
         TextScaleFactor = textScaleFactor;
@@ -30,6 +31,7 @@ public sealed class SystemVisualSettings
         ClientAreaAnimationEnabled = clientAreaAnimationEnabled;
         KeyboardCuesVisible = keyboardCuesVisible;
         FocusBorderMetrics = focusBorderMetrics;
+        SystemColorMode = systemColorMode;
     }
 
     /// <summary>
@@ -90,6 +92,17 @@ public sealed class SystemVisualSettings
     ///  </para>
     /// </remarks>
     public Size FocusBorderMetrics { get; }
+
+    /// <summary>
+    /// Gets the effective color mode selected by the Windows system environment.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The value represents the current Windows application color preference,
+    /// not the mode configured through <see cref="Application.SetColorMode(SystemColorMode)"/>.
+    /// </para>
+    /// </remarks>
+    public SystemColorMode SystemColorMode { get; }
 }
 
 /// <summary>
@@ -131,7 +144,12 @@ public enum SystemVisualSettingsCategories
     /// <summary>
     ///  The Windows focus-border metrics changed.
     /// </summary>
-    FocusMetrics = 1 << 5
+    FocusMetrics = 1 << 5,
+
+    /// <summary>
+    /// The effective Windows system color mode changed.
+    /// </summary>
+    SystemColorMode = 1 << 6
 }
 
 /// <summary>

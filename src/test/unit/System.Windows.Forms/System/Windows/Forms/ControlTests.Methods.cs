@@ -14822,6 +14822,253 @@ public partial class ControlTests
         Assert.Equal(0, createdCallCount);
     }
 
+    [WinFormsFact]
+    public void Control_OnSystemVisualSettingsChanged_SystemColorMode_RaisesEvent()
+    {
+        using SystemVisualSettingsTestControl control = new();
+
+        SystemVisualSettings oldSettings =
+            CreateSystemVisualSettings(SystemColorMode.Classic);
+
+        SystemVisualSettings newSettings =
+            CreateSystemVisualSettings(SystemColorMode.Dark);
+
+        SystemVisualSettingsChangedEventArgs eventArgs = new(
+            oldSettings,
+            newSettings,
+            SystemVisualSettingsCategories.SystemColorMode);
+
+        int callCount = 0;
+        SystemVisualSettingsChangedEventArgs? actualEventArgs = null;
+
+        control.SystemVisualSettingsChanged += (sender, e) =>
+        {
+            Assert.Same(control, sender);
+            callCount++;
+            actualEventArgs = e;
+        };
+
+        control.RaiseSystemVisualSettingsChanged(eventArgs);
+
+        Assert.Equal(1, callCount);
+        Assert.Same(eventArgs, actualEventArgs);
+        Assert.Equal(
+            SystemColorMode.Classic,
+            actualEventArgs.OldSettings.SystemColorMode);
+        Assert.Equal(
+            SystemColorMode.Dark,
+            actualEventArgs.NewSettings.SystemColorMode);
+    }
+
+    [WinFormsFact]
+    public void Control_OnSystemVisualSettingsChanged_SystemColorMode_InvalidatesControl()
+    {
+        using SystemVisualSettingsTestControl control = new();
+        control.CreateControl();
+
+        SystemVisualSettings oldSettings =
+            CreateSystemVisualSettings(SystemColorMode.Classic);
+
+        SystemVisualSettings newSettings =
+            CreateSystemVisualSettings(SystemColorMode.Dark);
+
+        SystemVisualSettingsChangedEventArgs eventArgs = new(
+            oldSettings,
+            newSettings,
+            SystemVisualSettingsCategories.SystemColorMode);
+
+        int invalidatedCallCount = 0;
+        control.Invalidated += (_, _) => invalidatedCallCount++;
+
+        control.RaiseSystemVisualSettingsChanged(eventArgs);
+
+        Assert.Equal(1, invalidatedCallCount);
+    }
+
+    [WinFormsFact]
+    public void Control_OnSystemVisualSettingsChanged_SystemColorMode_DoesNotCreateHandle()
+    {
+        using SystemVisualSettingsTestControl control = new();
+
+        SystemVisualSettingsChangedEventArgs eventArgs = new(
+            CreateSystemVisualSettings(SystemColorMode.Classic),
+            CreateSystemVisualSettings(SystemColorMode.Dark),
+            SystemVisualSettingsCategories.SystemColorMode);
+
+        Assert.False(control.IsHandleCreated);
+
+        control.RaiseSystemVisualSettingsChanged(eventArgs);
+
+        Assert.False(control.IsHandleCreated);
+    }
+
+    [WinFormsFact]
+    public void Control_OnSystemVisualSettingsChanged_SystemColorMode_CascadesToChildren()
+    {
+        using SystemVisualSettingsTestControl parent = new();
+        using SystemVisualSettingsTestControl child = new();
+        using SystemVisualSettingsTestControl grandChild = new();
+
+        parent.Controls.Add(child);
+        child.Controls.Add(grandChild);
+
+        SystemVisualSettingsChangedEventArgs eventArgs = new(
+            CreateSystemVisualSettings(SystemColorMode.Classic),
+            CreateSystemVisualSettings(SystemColorMode.Dark),
+            SystemVisualSettingsCategories.SystemColorMode);
+
+        parent.RaiseSystemVisualSettingsChanged(eventArgs);
+
+        Assert.Equal(
+            1,
+            parent.SystemVisualSettingsChangedCallCount);
+
+        Assert.Equal(
+            1,
+            child.SystemVisualSettingsChangedCallCount);
+
+        Assert.Equal(
+            1,
+            grandChild.SystemVisualSettingsChangedCallCount);
+
+        Assert.Same(
+            eventArgs,
+            child.LastSystemVisualSettingsChangedEventArgs);
+
+        Assert.Same(
+            eventArgs,
+            grandChild.LastSystemVisualSettingsChangedEventArgs);
+    }
+
+    [WinFormsFact]
+    public void Control_OnSystemVisualSettingsChanged_SystemColorMode_DoesNotRaiseVisualStylesModeChanged()
+    {
+        using SystemVisualSettingsTestControl control = new()
+        {
+            VisualStylesMode = VisualStylesMode.Net11
+        };
+
+        SystemVisualSettingsChangedEventArgs eventArgs = new(
+            CreateSystemVisualSettings(SystemColorMode.Classic),
+            CreateSystemVisualSettings(SystemColorMode.Dark),
+            SystemVisualSettingsCategories.SystemColorMode);
+
+        int visualStylesModeChangedCallCount = 0;
+
+        control.VisualStylesModeChanged +=
+            (_, _) => visualStylesModeChangedCallCount++;
+
+        control.RaiseSystemVisualSettingsChanged(eventArgs);
+
+        Assert.Equal(0, visualStylesModeChangedCallCount);
+    }
+
+    [WinFormsTheory]
+    [InlineData(VisualStylesMode.Inherit)]
+    [InlineData(VisualStylesMode.Classic)]
+    [InlineData(VisualStylesMode.Disabled)]
+    [InlineData(VisualStylesMode.Net11)]
+    [InlineData(VisualStylesMode.Latest)]
+    public void Control_OnSystemVisualSettingsChanged_SystemColorMode_RaisesEventForAllVisualStylesModes(
+    VisualStylesMode visualStylesMode)
+    {
+        using SystemVisualSettingsTestControl control = new()
+        {
+            VisualStylesMode = visualStylesMode
+        };
+
+        SystemVisualSettingsChangedEventArgs eventArgs = new(
+            CreateSystemVisualSettings(SystemColorMode.Classic),
+            CreateSystemVisualSettings(SystemColorMode.Dark),
+            SystemVisualSettingsCategories.SystemColorMode);
+
+        int callCount = 0;
+        control.SystemVisualSettingsChanged += (_, _) => callCount++;
+
+        control.RaiseSystemVisualSettingsChanged(eventArgs);
+
+        Assert.Equal(1, callCount);
+    }
+
+    [WinFormsFact]
+    public void Control_OnSystemVisualSettingsChanged_AccentColorAndSystemColorMode_InvalidatesOnce()
+    {
+        using SystemVisualSettingsTestControl control = new();
+        control.CreateControl();
+
+        SystemVisualSettings oldSettings = new(
+            Color.Blue,
+            1.0f,
+            false,
+            true,
+            false,
+            new Size(1, 1),
+            SystemColorMode.Classic);
+
+        SystemVisualSettings newSettings = new(
+            Color.Red,
+            1.0f,
+            false,
+            true,
+            false,
+            new Size(1, 1),
+            SystemColorMode.Dark);
+
+        SystemVisualSettingsChangedEventArgs eventArgs = new(
+            oldSettings,
+            newSettings,
+            SystemVisualSettingsCategories.AccentColor
+                | SystemVisualSettingsCategories.SystemColorMode);
+
+        int invalidatedCallCount = 0;
+        control.Invalidated += (_, _) => invalidatedCallCount++;
+
+        control.RaiseSystemVisualSettingsChanged(eventArgs);
+
+        Assert.Equal(1, invalidatedCallCount);
+    }
+
+    private static SystemVisualSettings CreateSystemVisualSettings(
+    SystemColorMode systemColorMode,
+    Color? accentColor = null,
+    bool highContrastEnabled = false)
+    {
+        return new SystemVisualSettings(
+            accentColor ?? Color.Blue,
+            textScaleFactor: 1.0f,
+            highContrastEnabled,
+            clientAreaAnimationEnabled: true,
+            keyboardCuesVisible: false,
+            focusBorderMetrics: new Size(1, 1),
+            systemColorMode);
+    }
+
+    private sealed class SystemVisualSettingsTestControl : Control
+    {
+        public int SystemVisualSettingsChangedCallCount { get; private set; }
+
+        public SystemVisualSettingsChangedEventArgs? LastSystemVisualSettingsChangedEventArgs
+        {
+            get;
+            private set;
+        }
+
+        public void RaiseSystemVisualSettingsChanged(
+            SystemVisualSettingsChangedEventArgs e)
+        {
+            OnSystemVisualSettingsChanged(e);
+        }
+
+        protected override void OnSystemVisualSettingsChanged(
+            SystemVisualSettingsChangedEventArgs e)
+        {
+            SystemVisualSettingsChangedCallCount++;
+            LastSystemVisualSettingsChangedEventArgs = e;
+
+            base.OnSystemVisualSettingsChanged(e);
+        }
+    }
+
     private class NoCreateControl : Control
     {
         protected override void WndProc(ref Message m)

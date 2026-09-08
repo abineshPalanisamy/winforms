@@ -951,14 +951,16 @@ public class GroupBoxTests
             highContrastEnabled: false,
             previous.ClientAreaAnimationEnabled,
             previous.KeyboardCuesVisible,
-            previous.FocusBorderMetrics);
+            previous.FocusBorderMetrics,
+            SystemColorMode.Classic);
         SystemVisualSettings scaled = new(
             previous.AccentColor,
             1.5f,
             highContrastEnabled: false,
             previous.ClientAreaAnimationEnabled,
             previous.KeyboardCuesVisible,
-            previous.FocusBorderMetrics);
+            previous.FocusBorderMetrics,
+            SystemColorMode.Classic);
 
         try
         {

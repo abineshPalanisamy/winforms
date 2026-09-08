@@ -96,6 +96,11 @@ internal static class SystemVisualSettingsTracker
             changed |= SystemVisualSettingsCategories.FocusMetrics;
         }
 
+        if (oldSettings.SystemColorMode != newSettings.SystemColorMode)
+        {
+            changed |= SystemVisualSettingsCategories.SystemColorMode;
+        }
+
         return changed;
     }
 
@@ -109,7 +114,8 @@ internal static class SystemVisualSettingsTracker
             values.HighContrastEnabled,
             values.ClientAreaAnimationEnabled,
             values.KeyboardCuesVisible,
-            values.FocusBorderMetrics);
+            values.FocusBorderMetrics,
+            values.SystemColorMode);
 
     /// <summary>
     ///  Sets a deterministic settings source for unit tests.
@@ -148,10 +154,16 @@ internal static class SystemVisualSettingsTracker
             PInvokeCore.SystemParametersInfoBool(SPI_GETKEYBOARDCUES),
             new Size(
                 PInvokeCore.SystemParametersInfoInt(SPI_GETFOCUSBORDERWIDTH),
-                PInvokeCore.SystemParametersInfoInt(SPI_GETFOCUSBORDERHEIGHT)));
+                PInvokeCore.SystemParametersInfoInt(SPI_GETFOCUSBORDERHEIGHT)),
+            GetSystemColorMode());
 
         return CreateSnapshot(values);
     }
+
+    private static SystemColorMode GetSystemColorMode()
+        => Application.GetSystemColorModeInternal() == 0
+            ? SystemColorMode.Dark
+            : SystemColorMode.Classic;
 
     private static Color GetAccentColor()
     {
@@ -207,4 +219,5 @@ internal readonly record struct SystemVisualSettingsNativeValues(
     bool HighContrastEnabled,
     bool ClientAreaAnimationEnabled,
     bool KeyboardCuesVisible,
-    Size FocusBorderMetrics);
+    Size FocusBorderMetrics,
+    SystemColorMode SystemColorMode);
