@@ -2781,7 +2781,7 @@ public abstract partial class TextBoxBase : Control
                 adornerColor,
                 focusColor);
         }
-        else if (Focused)
+        else if (Focused && BorderStyle != BorderStyle.None)
         {
             Color focusColor = GetVisualStylesFocusColor(Application.SystemVisualSettings.HighContrastEnabled);
             using var focusPen = focusColor.GetCachedPenScope(borderThickness);
@@ -2797,6 +2797,11 @@ public abstract partial class TextBoxBase : Control
                     deflatedBounds.Right,
                     deflatedBounds.Bottom - i);
             }
+        }
+
+        if (BorderStyle == BorderStyle.None)
+        {
+            return;
         }
 
         Rectangle[] nonClientBands = GetNonClientPaintBands(
