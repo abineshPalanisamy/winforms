@@ -10933,7 +10933,7 @@ public partial class RichTextBoxTests
     }
 
     [WinFormsFact]
-    public void RichTextBox_DrawToBitmap_Net11BorderStyleFixedSingle_RendersBorder()
+    public void RichTextBox_DrawToBitmap_Net11BorderStyleFixedSingle_RendersAllBorderEdges()
     {
         using Form form = new()
         {
@@ -10953,8 +10953,36 @@ public partial class RichTextBoxTests
         form.Controls.Add(control);
         form.Show();
 
-        using Bitmap bitmap = new(control.Width, control.Height);
-        control.DrawToBitmap(bitmap, control.ClientRectangle);
+        using Bitmap bitmap = DrawToBitmapWithBackground(control);
+
+        AssertContainsBorderPixel(bitmap, control.BackColor);
+    }
+
+    [WinFormsFact]
+    public void RichTextBox_DrawToBitmap_Net11BorderStyleFixedSingleFocused_RendersAllBorderEdges()
+    {
+        using Form form = new()
+        {
+            ClientSize = new Size(300, 200),
+            VisualStylesMode = VisualStylesMode.Net11
+        };
+
+        using RichTextBox control = new()
+        {
+            BackColor = Color.White,
+            BorderStyle = BorderStyle.FixedSingle,
+            Location = new Point(20, 20),
+            Size = new Size(200, 100),
+            VisualStylesMode = VisualStylesMode.Net11
+        };
+
+        form.Controls.Add(control);
+        form.Show();
+
+        Assert.True(control.Focus());
+        Assert.True(control.Focused);
+
+        using Bitmap bitmap = DrawToBitmapWithBackground(control);
 
         AssertContainsBorderPixel(bitmap, control.BackColor);
     }
@@ -10980,8 +11008,7 @@ public partial class RichTextBoxTests
         form.Controls.Add(control);
         form.Show();
 
-        using Bitmap bitmap = new(control.Width, control.Height);
-        control.DrawToBitmap(bitmap, control.ClientRectangle);
+        using Bitmap bitmap = DrawToBitmapWithBackground(control);
 
         AssertContainsBorderPixel(bitmap, control.BackColor);
     }
@@ -11010,6 +11037,8 @@ public partial class RichTextBoxTests
         control.BorderStyle = BorderStyle.None;
 
         Assert.Equal(BorderStyle.None, control.BorderStyle);
+        Assert.True(control.Focus());
+        Assert.True(control.Focused);
 
         using Bitmap bitmap = DrawToBitmapWithBackground(control);
 
@@ -11019,7 +11048,60 @@ public partial class RichTextBoxTests
             checkBottom: true);
     }
 
-    private static void AssertContainsBorderPixel(Bitmap bitmap, Color clientColor)
+    private static Bitmap DrawToBitmapWithBackground(Control control)
+    {
+        Bitmap bitmap = new(control.Width, control.Height);
+
+        using (Graphics graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(control.BackColor);
+        }
+
+        control.DrawToBitmap(bitmap, control.ClientRectangle);
+
+        return bitmap;
+    }
+
+    private static void AssertBorderless(
+        Bitmap bitmap,
+        Color expectedColor,
+        bool checkBottom)
+    {
+        int expectedArgb = expectedColor.ToArgb();
+
+        // Validate the top edge, excluding the corners.
+        for (int x = 1; x < bitmap.Width - 1; x++)
+        {
+            Assert.Equal(
+                expectedArgb,
+                bitmap.GetPixel(x, 0).ToArgb());
+        }
+
+        // Validate the left edge, excluding the corners.
+        for (int y = 1; y < bitmap.Height - 1; y++)
+        {
+            Assert.Equal(
+                expectedArgb,
+                bitmap.GetPixel(0, y).ToArgb());
+        }
+
+        if (checkBottom)
+        {
+            int bottom = bitmap.Height - 1;
+
+            // Validate that the focused bottom indicator is not rendered.
+            for (int x = 1; x < bitmap.Width - 1; x++)
+            {
+                Assert.Equal(
+                    expectedArgb,
+                    bitmap.GetPixel(x, bottom).ToArgb());
+            }
+        }
+    }
+
+    private static void AssertContainsBorderPixel(
+        Bitmap bitmap,
+        Color clientColor)
     {
         int clientColorArgb = clientColor.ToArgb();
         bool containsBorderPixel = false;
@@ -11039,54 +11121,6 @@ public partial class RichTextBoxTests
         }
 
         Assert.True(containsBorderPixel);
-    }
-
-    private static Bitmap DrawToBitmapWithBackground(Control control)
-    {
-        Bitmap bitmap = new(control.Width, control.Height);
-
-        using (Graphics graphics = Graphics.FromImage(bitmap))
-        {
-            graphics.Clear(control.BackColor);
-        }
-
-        control.DrawToBitmap(bitmap, control.ClientRectangle);
-
-        return bitmap;
-    }
-
-    private static void AssertBorderless(
-    Bitmap bitmap,
-    Color expectedColor,
-    bool checkBottom)
-    {
-        int expectedArgb = expectedColor.ToArgb();
-
-        for (int x = 1; x < bitmap.Width - 1; x++)
-        {
-            Assert.Equal(
-                expectedArgb,
-                bitmap.GetPixel(x, 0).ToArgb());
-        }
-
-        for (int y = 1; y < bitmap.Height - 1; y++)
-        {
-            Assert.Equal(
-                expectedArgb,
-                bitmap.GetPixel(0, y).ToArgb());
-        }
-
-        if (checkBottom)
-        {
-            int bottom = bitmap.Height - 1;
-
-            for (int x = 1; x < bitmap.Width - 1; x++)
-            {
-                Assert.Equal(
-                    expectedArgb,
-                    bitmap.GetPixel(x, bottom).ToArgb());
-            }
-        }
     }
 
     private class CustomGetParaFormatRichTextBox : RichTextBox
