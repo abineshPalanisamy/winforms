@@ -4242,6 +4242,71 @@ public partial class DataGridViewTests : IDisposable
         Assert.False(dataGridView.ProcessDataGridViewKeyCalled);
     }
 
+    [WinFormsFact]
+    public void DataGridView_ProcessDeleteKey_NewRowSelected_CancelsPendingNewItem()
+    {
+        BindingList<DeleteRowTestItem> items =
+        [
+            new() { Value = "A" },
+        new() { Value = "B" },
+        new() { Value = "C" }
+        ];
+
+        using DeleteRowTestDataGridView control = new()
+        {
+            AllowUserToAddRows = true,
+            AllowUserToDeleteRows = true,
+            AutoGenerateColumns = true,
+            MultiSelect = true,
+            SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+            BindingContext = new BindingContext()
+        };
+
+        control.DataSource = items;
+        control.CreateControl();
+
+        Assert.Equal(4, control.Rows.Count);
+        Assert.Equal(3, control.NewRowIndex);
+
+        int newRowIndex = control.NewRowIndex;
+
+        // Enter the new row to start the AddNew transaction.
+        control.CurrentCell = control.Rows[newRowIndex].Cells[0];
+
+        control.ClearSelection();
+
+        control.Rows[2].Selected = true;
+        control.Rows[newRowIndex].Selected = true;
+
+        Assert.True(control.ProcessDeleteKey());
+
+        Assert.Collection(
+            items,
+            item => Assert.Equal("A", item.Value),
+            item => Assert.Equal("B", item.Value));
+
+        Assert.Equal(3, control.Rows.Count);
+        Assert.Equal(2, control.NewRowIndex);
+
+        control.CurrentCell = control.Rows[0].Cells[0];
+
+        // Enter the new row again. This previously threw an exception.
+        control.CurrentCell = control.Rows[control.NewRowIndex].Cells[0];
+
+        Assert.Equal(3, items.Count);
+    }
+
+    private sealed class DeleteRowTestDataGridView : DataGridView
+    {
+        public bool ProcessDeleteKey()
+            => ProcessDataGridViewKey(new KeyEventArgs(Keys.Delete));
+    }
+
+    private sealed class DeleteRowTestItem
+    {
+        public string? Value { get; set; }
+    }
+
     private static TestDataGridView CreateGrid()
     {
         TestDataGridView grid = new()

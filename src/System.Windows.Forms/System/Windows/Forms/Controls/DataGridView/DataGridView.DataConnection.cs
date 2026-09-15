@@ -845,6 +845,15 @@ public partial class DataGridView
                     }
                     else
                     {
+                        // The new row is not passed to DeleteRow during multi-row deletion.
+                        // Cancel the pending AddNew item when the new row is selected.
+                        if (_owner.NewRowIndex >= 0
+                        && (_owner.Rows.GetRowState(_owner.NewRowIndex)
+                            & DataGridViewElementStates.Selected) != 0)
+                        {
+                            CancelRowEdit(restoreRow: false, addNewFinished: true);
+                        }
+
                         // start the Delete operation
                         _dataConnectionState[DATACONNECTIONSTATE_inDeleteOperation] = true;
                         // we did not delete any rows from the data grid view yet
