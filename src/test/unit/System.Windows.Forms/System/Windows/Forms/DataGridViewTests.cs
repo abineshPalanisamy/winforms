@@ -4242,6 +4242,80 @@ public partial class DataGridViewTests : IDisposable
         Assert.False(dataGridView.ProcessDataGridViewKeyCalled);
     }
 
+    [WinFormsFact]
+    public void DataGridView_ApplyDarkModeTheming_HeaderSelectionForeColors_SetToEmpty()
+    {
+        dynamic accessor = new TestAccessor<DataGridView>(_dataGridView).Dynamic;
+
+        accessor.ApplyDarkModeTheming();
+
+        _dataGridView.ColumnHeadersDefaultCellStyle.SelectionForeColor.Should().Be(Color.Empty);
+        _dataGridView.RowHeadersDefaultCellStyle.SelectionForeColor.Should().Be(Color.Empty);
+    }
+
+    [WinFormsTheory]
+    [InlineData(DataGridViewSelectionMode.FullColumnSelect)]
+    [InlineData(DataGridViewSelectionMode.ColumnHeaderSelect)]
+    public void DataGridView_ApplyDarkModeTheming_SelectedColumnHeader_InheritsSelectionForeColor(
+        DataGridViewSelectionMode selectionMode)
+    {
+        DataGridViewTextBoxColumn column = new()
+        {
+            SortMode = DataGridViewColumnSortMode.NotSortable
+        };
+
+        _dataGridView.Columns.Add(column);
+        _dataGridView.SelectionMode = selectionMode;
+
+        dynamic accessor = new TestAccessor<DataGridView>(_dataGridView).Dynamic;
+        accessor.ApplyDarkModeTheming();
+
+        _dataGridView.ClearSelection();
+        column.Selected = true;
+
+        column.HeaderCell.InheritedStyle.SelectionForeColor
+            .Should().Be(_dataGridView.DefaultCellStyle.SelectionForeColor);
+    }
+
+    [WinFormsFact]
+    public void DataGridView_ApplyDarkModeTheming_SelectedRowHeader_InheritsSelectionForeColor()
+    {
+        _dataGridView.Columns.Add(new DataGridViewTextBoxColumn());
+        _dataGridView.Rows.Add();
+        _dataGridView.SelectionMode = DataGridViewSelectionMode.RowHeaderSelect;
+
+        dynamic accessor = new TestAccessor<DataGridView>(_dataGridView).Dynamic;
+        accessor.ApplyDarkModeTheming();
+
+        _dataGridView.ClearSelection();
+        _dataGridView.Rows[0].Selected = true;
+
+        _dataGridView.Rows[0].HeaderCell.InheritedStyle.SelectionForeColor
+            .Should().Be(_dataGridView.DefaultCellStyle.SelectionForeColor);
+    }
+
+    [WinFormsFact]
+    public void DataGridView_ApplyDarkModeTheming_HeaderCellSelectionForeColor_PreservesOverride()
+    {
+        DataGridViewTextBoxColumn column = new()
+        {
+            SortMode = DataGridViewColumnSortMode.NotSortable
+        };
+
+        column.HeaderCell.Style.SelectionForeColor = Color.Yellow;
+
+        _dataGridView.Columns.Add(column);
+        _dataGridView.SelectionMode = DataGridViewSelectionMode.FullColumnSelect;
+
+        dynamic accessor = new TestAccessor<DataGridView>(_dataGridView).Dynamic;
+        accessor.ApplyDarkModeTheming();
+
+        _dataGridView.ClearSelection();
+        column.Selected = true;
+
+        column.HeaderCell.InheritedStyle.SelectionForeColor.Should().Be(Color.Yellow);
+    }
+
     private static TestDataGridView CreateGrid()
     {
         TestDataGridView grid = new()

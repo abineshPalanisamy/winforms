@@ -56,7 +56,9 @@ public partial class DataGridView
 
         // Selected state - use Color.Empty so header selection follows body selection
         RowHeadersDefaultCellStyle.SelectionBackColor = Color.Empty;
+        RowHeadersDefaultCellStyle.SelectionForeColor = Color.Empty;
         ColumnHeadersDefaultCellStyle.SelectionBackColor = Color.Empty;
+        ColumnHeadersDefaultCellStyle.SelectionForeColor = Color.Empty;
 
         DefaultCellStyle.SelectionBackColor = selectionBg;
         DefaultCellStyle.SelectionForeColor = selectionFg;
