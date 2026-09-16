@@ -4242,6 +4242,49 @@ public partial class DataGridViewTests : IDisposable
         Assert.False(dataGridView.ProcessDataGridViewKeyCalled);
     }
 
+    [WinFormsFact]
+    public void DataGridView_ApplyDarkModeTheming_CustomBackgroundColor_Preserved()
+    {
+        _dataGridView.BackgroundColor = Color.AliceBlue;
+        dynamic accessor = new TestAccessor<DataGridView>(_dataGridView).Dynamic;
+
+        accessor.ApplyDarkModeTheming();
+
+        _dataGridView.BackgroundColor.Should().Be(Color.AliceBlue);
+    }
+
+    [WinFormsFact]
+    public void DataGridView_ApplyDarkModeTheming_DefaultBackgroundColor_AppliesSurfaceColor()
+    {
+        dynamic accessor = new TestAccessor<DataGridView>(_dataGridView).Dynamic;
+
+        accessor.ApplyDarkModeTheming();
+
+        _dataGridView.BackgroundColor.Should().Be(SystemColors.Window);
+    }
+
+    [WinFormsFact]
+    public void DataGridView_ApplyDarkModeTheming_CustomBackgroundColor_DoesNotRaiseBackgroundColorChanged()
+    {
+        _dataGridView.BackgroundColor = Color.AliceBlue;
+        dynamic accessor = new TestAccessor<DataGridView>(_dataGridView).Dynamic;
+        int callCount = 0;
+
+        EventHandler handler = (sender, e) =>
+        {
+            sender.Should().Be(_dataGridView);
+            e.Should().Be(EventArgs.Empty);
+            callCount++;
+        };
+
+        _dataGridView.BackgroundColorChanged += handler;
+
+        accessor.ApplyDarkModeTheming();
+
+        _dataGridView.BackgroundColor.Should().Be(Color.AliceBlue);
+        callCount.Should().Be(0);
+    }
+
     private static TestDataGridView CreateGrid()
     {
         TestDataGridView grid = new()

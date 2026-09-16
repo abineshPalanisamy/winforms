@@ -39,7 +39,11 @@ public partial class DataGridView
         EnableHeadersVisualStyles = false;
 
         // Table body
-        BackgroundColor = surface;
+        if (_backgroundColor == s_defaultBackgroundColor)
+        {
+            BackgroundColor = surface;
+        }
+
         DefaultCellStyle.BackColor = surface;
         DefaultCellStyle.ForeColor = onSurface;
 
