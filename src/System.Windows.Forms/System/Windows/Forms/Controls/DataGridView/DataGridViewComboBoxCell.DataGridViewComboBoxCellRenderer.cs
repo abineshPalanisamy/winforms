@@ -76,25 +76,45 @@ public partial class DataGridViewComboBoxCell
             t_visualStyleRenderer.DrawBackground(g, bounds);
         }
 
-        public static void DrawReadOnlyButton(Graphics g, Rectangle bounds, ComboBoxState state)
+        public static void DrawReadOnlyButton(
+            Graphics g,
+            Rectangle bounds,
+            ComboBoxState state)
         {
             // Use Dark Mode element when enabled
             if (Application.IsDarkModeEnabled && AppContextSwitches.DataGridViewDarkModeTheming)
             {
-                // Draw dark background similar to ComboBox in Dark Mode
-                using var brush = new SolidBrush(Color.FromArgb(45, 45, 45));
-                g.FillRectangle(brush, bounds);
-
-                // Draw border
-                using var pen = new Pen(Color.FromArgb(100, 100, 100));
-                g.DrawRectangle(pen, bounds.X, bounds.Y, bounds.Width - 1, bounds.Height - 1);
-
+                DrawDarkModeReadOnlyButton(g, bounds, state);
                 return;
             }
 
             InitializeRenderer(s_comboBoxReadOnlyButton, (int)state);
-
             t_visualStyleRenderer.DrawBackground(g, bounds);
+        }
+
+        private static void DrawDarkModeReadOnlyButton(
+            Graphics g,
+            Rectangle bounds,
+            ComboBoxState state)
+        {
+            Color backColor = state == ComboBoxState.Hot
+                ? Color.FromArgb(70, 70, 70)
+                : Color.FromArgb(45, 45, 45);
+
+            Color borderColor = state == ComboBoxState.Hot
+                ? Color.FromArgb(160, 160, 160)
+                : Color.FromArgb(100, 100, 100);
+
+            using var brush = backColor.GetCachedSolidBrushScope();
+            g.FillRectangle(brush, bounds);
+
+            using var pen = borderColor.GetCachedPenScope();
+            g.DrawRectangle(
+                pen,
+                bounds.X,
+                bounds.Y,
+                bounds.Width - 1,
+                bounds.Height - 1);
         }
 
         [MemberNotNull(nameof(t_visualStyleRenderer))]

@@ -3,6 +3,8 @@
 
 using System.ComponentModel;
 using System.Drawing;
+using System.Reflection;
+using System.Windows.Forms.VisualStyles;
 
 namespace System.Windows.Forms.Tests;
 
@@ -354,5 +356,128 @@ public class DataGridViewComboBoxCellTests : IDisposable
         object? result = _dataGridViewComboBoxCell.ParseFormattedValue("test", style, null, null);
 
         result.Should().Be("test");
+    }
+
+    [WinFormsTheory]
+    [InlineData(ComboBoxState.Normal, 45, 45, 45, 100, 100, 100)]
+    [InlineData(ComboBoxState.Hot, 70, 70, 70, 160, 160, 160)]
+    public void DataGridViewComboBoxCellRenderer_DrawDarkModeReadOnlyButton_DrawsExpectedColors(
+    ComboBoxState state,
+    int expectedBackRed,
+    int expectedBackGreen,
+    int expectedBackBlue,
+    int expectedBorderRed,
+    int expectedBorderGreen,
+    int expectedBorderBlue)
+    {
+        using Bitmap bitmap = new(30, 30);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+
+        graphics.Clear(Color.Magenta);
+
+        Rectangle bounds = new(2, 2, 20, 20);
+
+        InvokeDrawDarkModeReadOnlyButton(
+            graphics,
+            bounds,
+            state);
+
+        Color expectedBackColor = Color.FromArgb(
+            expectedBackRed,
+            expectedBackGreen,
+            expectedBackBlue);
+
+        Color expectedBorderColor = Color.FromArgb(
+            expectedBorderRed,
+            expectedBorderGreen,
+            expectedBorderBlue);
+
+        bitmap.GetPixel(10, 10).Should().Be(expectedBackColor);
+        bitmap.GetPixel(bounds.Left, bounds.Top).Should().Be(expectedBorderColor);
+    }
+
+    [WinFormsFact]
+    public void DataGridViewComboBoxCellRenderer_DrawDarkModeReadOnlyButton_HotStateDiffersFromNormalState()
+    {
+        using Bitmap normalBitmap = new(30, 30);
+        using Bitmap hotBitmap = new(30, 30);
+        using Graphics normalGraphics = Graphics.FromImage(normalBitmap);
+        using Graphics hotGraphics = Graphics.FromImage(hotBitmap);
+
+        Rectangle bounds = new(2, 2, 20, 20);
+
+        InvokeDrawDarkModeReadOnlyButton(
+            normalGraphics,
+            bounds,
+            ComboBoxState.Normal);
+
+        InvokeDrawDarkModeReadOnlyButton(
+            hotGraphics,
+            bounds,
+            ComboBoxState.Hot);
+
+        Color normalBackColor = normalBitmap.GetPixel(10, 10);
+        Color hotBackColor = hotBitmap.GetPixel(10, 10);
+        Color normalBorderColor = normalBitmap.GetPixel(
+            bounds.Left,
+            bounds.Top);
+        Color hotBorderColor = hotBitmap.GetPixel(
+            bounds.Left,
+            bounds.Top);
+
+        hotBackColor.Should().NotBe(normalBackColor);
+        hotBorderColor.Should().NotBe(normalBorderColor);
+    }
+
+    [WinFormsFact]
+    public void DataGridViewComboBoxCellRenderer_DrawDarkModeReadOnlyButton_DoesNotPaintOutsideBounds()
+    {
+        using Bitmap bitmap = new(30, 30);
+        using Graphics graphics = Graphics.FromImage(bitmap);
+
+        Color outsideColor = Color.Magenta;
+        graphics.Clear(outsideColor);
+
+        Rectangle bounds = new(5, 5, 15, 15);
+
+        InvokeDrawDarkModeReadOnlyButton(
+            graphics,
+            bounds,
+            ComboBoxState.Hot);
+
+        bitmap.GetPixel(0, 0).ToArgb()
+            .Should().Be(outsideColor.ToArgb());
+
+        bitmap.GetPixel(bounds.Left - 1, bounds.Top - 1).ToArgb()
+            .Should().Be(outsideColor.ToArgb());
+
+        bitmap.GetPixel(bounds.Right, bounds.Bottom).ToArgb()
+            .Should().Be(outsideColor.ToArgb());
+
+        bitmap.GetPixel(bounds.Left + 1, bounds.Top + 1).ToArgb()
+            .Should().NotBe(outsideColor.ToArgb());
+    }
+
+    private static void InvokeDrawDarkModeReadOnlyButton(
+        Graphics graphics,
+        Rectangle bounds,
+        ComboBoxState state)
+    {
+        Type rendererType = typeof(DataGridViewComboBoxCell).GetNestedType(
+            "DataGridViewComboBoxCellRenderer",
+            BindingFlags.NonPublic)!;
+
+        MethodInfo method = rendererType.GetMethod(
+            "DrawDarkModeReadOnlyButton",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        method.Invoke(
+            obj: null,
+            parameters:
+            [
+                graphics,
+            bounds,
+            state
+            ]);
     }
 }

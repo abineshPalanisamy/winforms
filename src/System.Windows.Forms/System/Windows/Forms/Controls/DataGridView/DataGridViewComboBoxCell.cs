@@ -1866,6 +1866,7 @@ public partial class DataGridViewComboBoxCell : DataGridViewCell
         bool computeDropDownButtonRect,
         bool paint)
     {
+
         // Parameter checking.
         // One bit and one bit only should be turned on
         Debug.Assert(paint || computeContentBounds || computeErrorIconBounds || computeDropDownButtonRect);
@@ -2059,7 +2060,7 @@ public partial class DataGridViewComboBoxCell : DataGridViewCell
                                 else
                                 {
                                     DataGridViewComboBoxCellRenderer.DrawReadOnlyButton(g, valBounds, comboBoxState);
-                                    DataGridViewComboBoxCellRenderer.DrawDropDownButton(g, dropRect, ComboBoxState.Normal);
+                                    DataGridViewComboBoxCellRenderer.DrawDropDownButton(g, dropRect, comboBoxState);
                                 }
 
                                 if (SystemInformation.HighContrast)
