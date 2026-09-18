@@ -3010,6 +3010,36 @@ public abstract partial class TextBoxBase : Control
                 scrollBarInfo.rcScrollBar.top - windowRect.top,
                 scrollBarInfo.rcScrollBar.right - windowRect.left,
                 scrollBarInfo.rcScrollBar.bottom - windowRect.top);
+
+            if (objectId == VerticalScrollBarObjectId)
+            {
+                int scrollBarWidth =
+                    SystemInformation.GetVerticalScrollBarWidthForDpi(DeviceDpiInternal);
+
+                WINDOW_EX_STYLE exStyle = (WINDOW_EX_STYLE)PInvokeCore.GetWindowLong(
+                    this,
+                    WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE);
+
+                if ((exStyle & WINDOW_EX_STYLE.WS_EX_LEFTSCROLLBAR) != 0)
+                {
+                    int right = scrollBarRectangle.Right;
+
+                    scrollBarRectangle.X = right - scrollBarWidth;
+                    scrollBarRectangle.Width = scrollBarWidth;
+                }
+                else
+                {
+                    scrollBarRectangle.Width = scrollBarWidth;
+                }
+            }
+            else
+            {
+                int scrollBarHeight =
+                    SystemInformation.GetHorizontalScrollBarHeightForDpi(DeviceDpiInternal);
+
+                scrollBarRectangle.Height = scrollBarHeight;
+            }
+
             scrollBarRectangle.Intersect(bounds);
 
             if (scrollBarRectangle.Width > 0 && scrollBarRectangle.Height > 0)
