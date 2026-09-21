@@ -103,14 +103,23 @@ internal sealed class AnimatedToggleSwitchRenderer : AnimatedControlRenderer
 
         if (Control.Focused && ShowFocusCues)
         {
-            Rectangle focusBounds = Rectangle.Inflate(Control.ClientRectangle, -1, -1);
-            ControlPaint.DrawFocusRectangle(
-                graphics,
-                focusBounds,
-                Control.ForeColor,
-                Control.BackColor);
+            Rectangle focusBounds = GetFocusBounds(textBounds);
+
+            if (!focusBounds.IsEmpty)
+            {
+                ControlPaint.DrawFocusRectangle(
+                    graphics,
+                    focusBounds,
+                    Control.ForeColor,
+                    Control.BackColor);
+            }
         }
     }
+
+    internal static Rectangle GetFocusBounds(Rectangle textBounds)
+    => textBounds.Width > 0 && textBounds.Height > 0
+        ? textBounds
+        : Rectangle.Empty;
 
     internal void SetInteractionState(bool hovered, bool focused)
     {
@@ -238,7 +247,9 @@ internal sealed class AnimatedToggleSwitchRenderer : AnimatedControlRenderer
             Control.Font,
             textBounds,
             GetTextColor(),
-            textFormatFlags);
+            textFormatFlags
+                | TextFormatFlags.PreserveGraphicsClipping
+                | TextFormatFlags.PreserveGraphicsTranslateTransform);
     }
 
     internal static TextFormatFlags GetTextFormatFlags(Control control) => control switch
