@@ -40,8 +40,28 @@ public partial class DataGridView
 
         // Table body
         BackgroundColor = surface;
-        DefaultCellStyle.BackColor = surface;
-        DefaultCellStyle.ForeColor = onSurface;
+
+        DataGridViewCellStyle defaultCellStyle = DefaultCellStyle;
+
+        if (defaultCellStyle.BackColor == s_defaultBackColor)
+        {
+            defaultCellStyle.BackColor = surface;
+        }
+
+        if (defaultCellStyle.ForeColor == SystemColors.ControlText)
+        {
+            defaultCellStyle.ForeColor = onSurface;
+        }
+
+        if (defaultCellStyle.SelectionBackColor == SystemColors.Highlight)
+        {
+            defaultCellStyle.SelectionBackColor = selectionBg;
+        }
+
+        if (defaultCellStyle.SelectionForeColor == SystemColors.HighlightText)
+        {
+            defaultCellStyle.SelectionForeColor = selectionFg;
+        }
 
         // Column headers
         ColumnHeadersDefaultCellStyle.BackColor = headerBg;
@@ -57,9 +77,6 @@ public partial class DataGridView
         // Selected state - use Color.Empty so header selection follows body selection
         RowHeadersDefaultCellStyle.SelectionBackColor = Color.Empty;
         ColumnHeadersDefaultCellStyle.SelectionBackColor = Color.Empty;
-
-        DefaultCellStyle.SelectionBackColor = selectionBg;
-        DefaultCellStyle.SelectionForeColor = selectionFg;
     }
 
     protected virtual void AccessibilityNotifyCurrentCellChanged(Point cellAddress)

@@ -2943,6 +2943,82 @@ public partial class DataGridViewTests : IDisposable
         Assert.Equal(rowsCount2 + 1, control.Rows.Count); // + 1 is the new DGV row
     }
 
+    [WinFormsFact]
+    public void DataGridView_ApplyDarkModeTheming_CustomDefaultCellStyleColors_PreservesValues()
+    {
+        using DataGridView control = new();
+
+        control.DefaultCellStyle.BackColor = Color.DarkViolet;
+        control.DefaultCellStyle.ForeColor = Color.Red;
+        control.DefaultCellStyle.SelectionBackColor = Color.Cyan;
+        control.DefaultCellStyle.SelectionForeColor = Color.Lime;
+
+        dynamic accessor = new TestAccessor<DataGridView>(control).Dynamic;
+        accessor.ApplyDarkModeTheming();
+
+        control.DefaultCellStyle.BackColor.Should().Be(Color.DarkViolet);
+        control.DefaultCellStyle.ForeColor.Should().Be(Color.Red);
+        control.DefaultCellStyle.SelectionBackColor.Should().Be(Color.Cyan);
+        control.DefaultCellStyle.SelectionForeColor.Should().Be(Color.Lime);
+        control.IsHandleCreated.Should().BeFalse();
+    }
+
+    [WinFormsFact]
+    public void DataGridView_ApplyDarkModeTheming_CustomForeColor_PreservesValue()
+    {
+        using DataGridView control = new();
+
+        control.DefaultCellStyle.ForeColor = Color.Red;
+
+        dynamic accessor = new TestAccessor<DataGridView>(control).Dynamic;
+        accessor.ApplyDarkModeTheming();
+
+        control.DefaultCellStyle.ForeColor.Should().Be(Color.Red);
+        control.IsHandleCreated.Should().BeFalse();
+    }
+
+    [WinFormsFact]
+    public void DataGridView_ApplyDarkModeTheming_CustomSelectionBackColor_PreservesValue()
+    {
+        using DataGridView control = new();
+
+        control.DefaultCellStyle.SelectionBackColor = Color.Cyan;
+
+        dynamic accessor = new TestAccessor<DataGridView>(control).Dynamic;
+        accessor.ApplyDarkModeTheming();
+
+        control.DefaultCellStyle.SelectionBackColor.Should().Be(Color.Cyan);
+        control.IsHandleCreated.Should().BeFalse();
+    }
+
+    [WinFormsFact]
+    public void DataGridView_ApplyDarkModeTheming_CustomSelectionForeColor_PreservesValue()
+    {
+        using DataGridView control = new();
+
+        control.DefaultCellStyle.SelectionForeColor = Color.Lime;
+
+        dynamic accessor = new TestAccessor<DataGridView>(control).Dynamic;
+        accessor.ApplyDarkModeTheming();
+
+        control.DefaultCellStyle.SelectionForeColor.Should().Be(Color.Lime);
+        control.IsHandleCreated.Should().BeFalse();
+    }
+
+    [WinFormsFact]
+    public void DataGridView_ApplyDarkModeTheming_CustomBackColor_PreservesValue()
+    {
+        using DataGridView control = new();
+
+        control.DefaultCellStyle.BackColor = Color.DarkViolet;
+
+        dynamic accessor = new TestAccessor<DataGridView>(control).Dynamic;
+        accessor.ApplyDarkModeTheming();
+
+        control.DefaultCellStyle.BackColor.Should().Be(Color.DarkViolet);
+        control.IsHandleCreated.Should().BeFalse();
+    }
+
     private BindingSource GetTestBindingSource(int rowsCount)
     {
         DataTable dt = new();
