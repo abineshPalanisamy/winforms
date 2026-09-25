@@ -1478,6 +1478,22 @@ public partial class ComboBox : ListControl
     }
 
     /// <summary>
+    /// Closes the native ComboBox drop-down before the system AutoComplete
+    /// suggestion window processes an editing character.
+    /// </summary>
+    private void CloseDropDownForAutoCompleteSuggestions(char keyChar)
+    {
+        if (!DroppedDown
+            || AutoCompleteMode is not (AutoCompleteMode.Suggest or AutoCompleteMode.SuggestAppend)
+            || keyChar is (char)Keys.Return or (char)Keys.Escape)
+        {
+            return;
+        }
+
+        DroppedDown = false;
+    }
+
+    /// <summary>
     ///  Subclassed window procedure for the edit and list child controls of the
     ///  combo box.
     /// </summary>
@@ -1499,6 +1515,7 @@ public partial class ComboBox : ListControl
                             return;
                         }
 
+                        CloseDropDownForAutoCompleteSuggestions((char)(nuint)m.WParamInternal);
                         DefChildWndProc(ref m);
                     }
                 }

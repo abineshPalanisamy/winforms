@@ -3592,6 +3592,110 @@ public class ComboBoxTests
         Assert.Equal("12-9", control.Text);
     }
 
+    [WinFormsTheory]
+    [InlineData(AutoCompleteMode.Suggest)]
+    [InlineData(AutoCompleteMode.SuggestAppend)]
+    public void ComboBox_CloseDropDownForAutoCompleteSuggestions_SuggestionMode_ClosesDropDown(
+    AutoCompleteMode autoCompleteMode)
+    {
+        using Form form = new();
+        using ComboBox control = CreateAutoCompleteComboBox(autoCompleteMode);
+
+        form.Controls.Add(control);
+        form.Show();
+
+        control.DroppedDown = true;
+        Assert.True(control.DroppedDown);
+
+        dynamic accessor = control.TestAccessor.Dynamic;
+        accessor.CloseDropDownForAutoCompleteSuggestions('5');
+
+        Assert.False(control.DroppedDown);
+    }
+
+    [WinFormsTheory]
+    [InlineData(AutoCompleteMode.None)]
+    [InlineData(AutoCompleteMode.Append)]
+    public void ComboBox_CloseDropDownForAutoCompleteSuggestions_NonSuggestionMode_DoesNotCloseDropDown(
+        AutoCompleteMode autoCompleteMode)
+    {
+        using Form form = new();
+        using ComboBox control = CreateAutoCompleteComboBox(autoCompleteMode);
+
+        form.Controls.Add(control);
+        form.Show();
+
+        control.DroppedDown = true;
+        Assert.True(control.DroppedDown);
+
+        dynamic accessor = control.TestAccessor.Dynamic;
+        accessor.CloseDropDownForAutoCompleteSuggestions('5');
+
+        Assert.True(control.DroppedDown);
+    }
+
+    [WinFormsTheory]
+    [InlineData('\r')]
+    [InlineData((char)Keys.Escape)]
+    public void ComboBox_CloseDropDownForAutoCompleteSuggestions_ControlCharacter_DoesNotCloseDropDown(
+        char keyChar)
+    {
+        using Form form = new();
+        using ComboBox control = CreateAutoCompleteComboBox(AutoCompleteMode.SuggestAppend);
+
+        form.Controls.Add(control);
+        form.Show();
+
+        control.DroppedDown = true;
+        Assert.True(control.DroppedDown);
+
+        dynamic accessor = control.TestAccessor.Dynamic;
+        accessor.CloseDropDownForAutoCompleteSuggestions(keyChar);
+
+        Assert.True(control.DroppedDown);
+    }
+
+    [WinFormsFact]
+    public void ComboBox_CloseDropDownForAutoCompleteSuggestions_DoesNotChangeSelection()
+    {
+        using Form form = new();
+        using ComboBox control = CreateAutoCompleteComboBox(AutoCompleteMode.SuggestAppend);
+
+        control.SelectedIndex = 1;
+        form.Controls.Add(control);
+        form.Show();
+
+        control.DroppedDown = true;
+
+        int selectedIndexChangedCallCount = 0;
+        control.SelectedIndexChanged += (_, _) => selectedIndexChangedCallCount++;
+
+        dynamic accessor = control.TestAccessor.Dynamic;
+        accessor.CloseDropDownForAutoCompleteSuggestions('5');
+
+        Assert.False(control.DroppedDown);
+        Assert.Equal(1, control.SelectedIndex);
+        Assert.Equal("510", control.SelectedItem);
+        Assert.Equal(0, selectedIndexChangedCallCount);
+    }
+
+    private static ComboBox CreateAutoCompleteComboBox(
+        AutoCompleteMode autoCompleteMode)
+    {
+        ComboBox control = new()
+        {
+            AutoCompleteMode = autoCompleteMode,
+            AutoCompleteSource = autoCompleteMode == AutoCompleteMode.None
+                ? AutoCompleteSource.None
+                : AutoCompleteSource.ListItems,
+            DropDownStyle = ComboBoxStyle.DropDown
+        };
+
+        control.Items.AddRange(["51", "510", "511", "516", "58"]);
+
+        return control;
+    }
+
     public static IEnumerable<object[]> WndProc_PaintWithoutWParam_TestData()
     {
         foreach (bool allPaintingInWmPaint in new bool[] { true, false })
