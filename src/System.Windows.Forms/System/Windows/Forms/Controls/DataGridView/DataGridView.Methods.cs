@@ -15276,10 +15276,6 @@ public partial class DataGridView
     {
         base.OnHandleCreated(e);
 
-        // Prevent lazy initialization of the top-left header cell from
-        // triggering a nested layout while fill columns are being adjusted.
-        _ = TopLeftHeaderCell;
-
         if (_layout._dirty)
         {
             PerformLayoutPrivate(
