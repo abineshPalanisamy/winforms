@@ -1608,6 +1608,29 @@ internal sealed partial class PropertyGridView :
         EditTextBox.FilterKeyPress(keyChar);
     }
 
+    private static bool AreEquivalentGridEntries(
+    GridEntry savedEntry,
+    GridEntry currentEntry)
+    {
+        if (!savedEntry.EqualsIgnoreParent(currentEntry))
+        {
+            return false;
+        }
+
+        if (savedEntry is not PropertyDescriptorGridEntry savedPropertyEntry
+            || currentEntry is not PropertyDescriptorGridEntry currentPropertyEntry)
+        {
+            return true;
+        }
+
+        return string.Equals(
+                savedPropertyEntry.PropertyDescriptor.Name,
+                currentPropertyEntry.PropertyDescriptor.Name,
+                StringComparison.Ordinal)
+            && savedPropertyEntry.PropertyDescriptor.ComponentType
+                == currentPropertyEntry.PropertyDescriptor.ComponentType;
+    }
+
     private GridEntry? FindEquivalentGridEntry(GridEntryCollection? gridEntries)
     {
         if (gridEntries is null || gridEntries.Count == 0)
@@ -1652,7 +1675,7 @@ internal sealed partial class PropertyGridView :
             // Now, we will only go as many as were expanded.
             for (; row < allGridEntries!.Count && ((row - start) <= count); row++)
             {
-                if (gridEntries[i].EqualsIgnoreParent(allGridEntries[row]))
+                if (AreEquivalentGridEntries(gridEntries[i], allGridEntries[row]))
                 {
                     targetEntry = allGridEntries[row];
                     row++;
