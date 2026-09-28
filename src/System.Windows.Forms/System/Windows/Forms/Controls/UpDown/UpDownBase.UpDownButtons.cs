@@ -157,6 +157,10 @@ public abstract partial class UpDownBase
         /// <param name="e">The mouse event arguments.</param>
         protected override void OnMouseDown(MouseEventArgs e)
         {
+            // Validation cancellation applies only to the input that initiated
+            // the failed focus change. Treat this mouse press as a new attempt.
+            _parent.ValidationCancelled = false;
+
             // Begin spinning the value
             // Focus the parent
             _parent.Focus();
