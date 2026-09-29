@@ -164,14 +164,7 @@ public partial class RichTextBox : TextBoxBase
         set
         {
             _richTextBoxFlags[s_autoWordSelectionSection] = value ? 1 : 0;
-            if (IsHandleCreated)
-            {
-                PInvokeCore.SendMessage(
-                    this,
-                    PInvokeCore.EM_SETOPTIONS,
-                    (WPARAM)(int)(value ? PInvoke.ECOOP_OR : PInvoke.ECOOP_XOR),
-                    (LPARAM)(int)PInvoke.ECO_AUTOWORDSELECTION);
-            }
+            UpdateAutoWordSelection();
         }
     }
 
@@ -327,6 +320,31 @@ public partial class RichTextBox : TextBoxBase
     ///  rectangle the native handler produces.
     /// </summary>
     private protected override bool ReservesNativeNonClientArea => true;
+
+    private void UpdateAutoWordSelection()
+    {
+        if (!IsHandleCreated)
+        {
+            return;
+        }
+
+        if (AutoWordSelection)
+        {
+            PInvokeCore.SendMessage(
+                this,
+                PInvokeCore.EM_SETOPTIONS,
+                (WPARAM)(int)PInvoke.ECOOP_OR,
+                (LPARAM)(int)PInvoke.ECO_AUTOWORDSELECTION);
+        }
+        else
+        {
+            PInvokeCore.SendMessage(
+                this,
+                PInvokeCore.EM_SETOPTIONS,
+                (WPARAM)(int)PInvoke.ECOOP_AND,
+                (LPARAM)~(int)PInvoke.ECO_AUTOWORDSELECTION);
+        }
+    }
 
     /// <summary>
     ///  RichEdit reserves the scrollbar space itself while processing <c>WM_NCCALCSIZE</c> (see
@@ -2546,6 +2564,10 @@ public partial class RichTextBox : TextBoxBase
 
         // base sets the Text property. It's important to do this *after* setting EM_AUTOUrlDETECT.
         base.OnHandleCreated(e);
+
+        // Synchronize the persisted value with the newly created
+        // native Rich Edit control.
+        UpdateAutoWordSelection();
 
         // For some reason, we need to set the OleCallback before setting the RTF property.
         UpdateOleCallback();
