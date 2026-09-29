@@ -3251,7 +3251,58 @@ public partial class TreeView : Control
                 WmNotify(ref m);
                 break;
             case PInvokeCore.WM_LBUTTONDBLCLK:
-                WmMouseDown(ref m, MouseButtons.Left, 2);
+                Point doubleClickPoint = PARAM.ToPoint(m.LParamInternal);
+
+                TVHITTESTINFO doubleClickHitTest = new()
+                {
+                    pt = doubleClickPoint
+                };
+
+                _mouseDownNode = PInvokeCore.SendMessage(
+                    this,
+                    PInvoke.TVM_HITTEST,
+                    0,
+                    ref doubleClickHitTest);
+
+                if (CheckBoxes
+                    && (doubleClickHitTest.flags
+                        & TVHITTESTINFO_FLAGS.TVHT_ONITEMSTATEICON) != 0)
+                {
+                    // Keep checkbox state changes in the managed path so the native
+                    // state image and TreeNode.Checked remain synchronized.
+                    OnMouseDown(
+                        new MouseEventArgs(
+                            MouseButtons.Left,
+                            clicks: 2,
+                            doubleClickPoint));
+
+                    if (!ValidationCancelled
+                        && NodeFromHandle(_mouseDownNode) is { } node)
+                    {
+                        bool checkCancelled = TreeViewBeforeCheck(
+                            node,
+                            TreeViewAction.ByMouse);
+
+                        if (!checkCancelled)
+                        {
+                            node.CheckedInternal = !node.CheckedInternal;
+                            TreeViewAfterCheck(
+                                node,
+                                TreeViewAction.ByMouse);
+                        }
+                    }
+
+                    // Do not allow the native TreeView to toggle only the visual
+                    // checkbox state.
+                    m.ResultInternal = (LRESULT)0;
+                }
+                else
+                {
+                    WmMouseDown(
+                        ref m,
+                        MouseButtons.Left,
+                        clicks: 2);
+                }
 
                 // Just maintain state and fire double click in final mouseUp.
                 _treeViewState[TREEVIEWSTATE_doubleclickFired] = true;
@@ -3261,6 +3312,7 @@ public partial class TreeView : Control
 
                 // Make sure we get the mouse up if it happens outside the control.
                 Capture = true;
+                _downButton = MouseButtons.Left;
                 break;
             case PInvokeCore.WM_LBUTTONDOWN:
                 try
