@@ -3742,6 +3742,49 @@ public partial class ComboBox : ListControl
     private static readonly IntPtr s_darkEditBrush
         = PInvokeCore.CreateSolidBrush(ColorTranslator.ToWin32(Color.FromArgb(64, 64, 64)));
 
+    private void WmSize(ref Message m)
+    {
+        if (DropDownStyle != ComboBoxStyle.DropDown
+            || !IsHandleCreated
+            || _childEdit is null
+            || _childEdit.HWND.IsNull)
+        {
+            base.WndProc(ref m);
+            return;
+        }
+
+        int selectionStart = SelectionStart;
+        int selectionLength = SelectionLength;
+        string text = WindowText;
+
+        base.WndProc(ref m);
+
+        if (!IsHandleCreated
+            || DropDownStyle != ComboBoxStyle.DropDown
+            || _childEdit is null
+            || _childEdit.HWND.IsNull
+            || !string.Equals(
+                text,
+                WindowText,
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        int textLength = Text.Length;
+        int restoredStart = Math.Min(
+            selectionStart,
+            textLength);
+
+        int restoredLength = Math.Min(
+            selectionLength,
+            textLength - restoredStart);
+
+        Select(
+            restoredStart,
+            restoredLength);
+    }
+
     /// <summary>
     ///  The ComboBox's window procedure. Inheriting classes can override this
     ///  to add extra functionality, but should not forget to call
@@ -4151,6 +4194,10 @@ public partial class ComboBox : ListControl
                 base.WndProc(ref m);
                 break;
 
+            case PInvokeCore.WM_SIZE:
+                WmSize(ref m);
+                break;
+
             case PInvokeCore.WM_WINDOWPOSCHANGED:
                 if (!_suppressNextWindowsPos)
                 {
@@ -4171,7 +4218,6 @@ public partial class ComboBox : ListControl
                 base.WndProc(ref m);
                 ReleaseChildWindow();
                 break;
-
             default:
                 if (m.MsgInternal == RegisteredMessage.WM_MOUSEENTER)
                 {
