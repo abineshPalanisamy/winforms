@@ -1219,6 +1219,8 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
 
         if (!IsSplitterFixed && IsSplitterMovable && _splitterClick)
         {
+            Capture = false;
+
             if (_splitterDrag)
             {
                 CalcSplitLine(GetSplitterDistance(e.X, e.Y), 0);
@@ -2290,11 +2292,6 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     {
         OnSplitterMoving(e);
 
-        if (!IsSplitterResizeActive)
-        {
-            return;
-        }
-
         if (e.Cancel)
         {
             SplitEnd(false);
@@ -2323,8 +2320,6 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
 
         if (accept)
         {
-            Capture = false;
-
             if (_splitDistance != _splitterDistance)
             {
                 ApplySplitterDistance(raiseSplitterMoved: !_useLiveSplitterResize);
@@ -2600,15 +2595,8 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
         base.OnMouseCaptureChanged(e);
         if (_splitContainerMessageFilter is not null)
         {
-            if (!Capture && _splitterClick && _useLiveSplitterResize)
-            {
-                SplitEnd(false);
-            }
-            else
-            {
-                Application.RemoveMessageFilter(_splitContainerMessageFilter);
-                _splitContainerMessageFilter = null;
-            }
+            Application.RemoveMessageFilter(_splitContainerMessageFilter);
+            _splitContainerMessageFilter = null;
         }
     }
 
