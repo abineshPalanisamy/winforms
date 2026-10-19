@@ -63,6 +63,8 @@ public partial class DataGridView
             defaultCellStyle.SelectionForeColor = selectionFg;
         }
 
+        DefaultCellStyle = defaultCellStyle;
+
         // Column headers
         ColumnHeadersDefaultCellStyle.BackColor = headerBg;
         ColumnHeadersDefaultCellStyle.ForeColor = headerFg;

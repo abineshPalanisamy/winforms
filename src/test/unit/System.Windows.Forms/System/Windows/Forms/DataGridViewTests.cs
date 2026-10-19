@@ -2963,17 +2963,31 @@ public partial class DataGridViewTests : IDisposable
         control.IsHandleCreated.Should().BeFalse();
     }
 
-    [WinFormsFact]
-    public void DataGridView_ApplyDarkModeTheming_CustomForeColor_PreservesValue()
+    [WinFormsTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DataGridView_ApplyDarkModeTheming_CustomForeColor_PreservesValue(
+        bool assignPartialStyle)
     {
         using DataGridView control = new();
 
         control.DefaultCellStyle.ForeColor = Color.Red;
+        if (assignPartialStyle)
+        {
+            control.DefaultCellStyle = new() { ForeColor = Color.Red };
+        }
+        else
+        {
+            control.DefaultCellStyle.ForeColor = Color.Red;
+        }
 
         dynamic accessor = new TestAccessor<DataGridView>(control).Dynamic;
         accessor.ApplyDarkModeTheming();
 
         control.DefaultCellStyle.ForeColor.Should().Be(Color.Red);
+        control.DefaultCellStyle.BackColor.Should().Be(SystemColors.Window);
+        control.DefaultCellStyle.SelectionBackColor.Should().Be(Color.FromArgb(0x33, 0x66, 0xCC));
+        control.DefaultCellStyle.SelectionForeColor.Should().Be(Color.White);
         control.IsHandleCreated.Should().BeFalse();
     }
 
