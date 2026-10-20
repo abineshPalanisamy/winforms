@@ -396,37 +396,101 @@ public class DataGridViewComboBoxCellTests : IDisposable
         bitmap.GetPixel(bounds.Left, bounds.Top).Should().Be(expectedBorderColor);
     }
 
-    [WinFormsFact]
-    public void DataGridViewComboBoxCellRenderer_DrawDarkModeReadOnlyButton_HotStateDiffersFromNormalState()
+    [WinFormsTheory]
+    [InlineData(FlatStyle.Standard, true, true)]
+    [InlineData(FlatStyle.System, true, true)]
+    [InlineData(FlatStyle.Standard, false, true)]
+    [InlineData(FlatStyle.System, false, true)]
+    [InlineData(FlatStyle.Standard, true, false)]
+    [InlineData(FlatStyle.System, true, false)]
+    public void DataGridViewComboBoxCellRenderer_DrawDarkModeReadOnlyButton_HotStateDiffersFromNormalState(
+       FlatStyle flatStyle,
+       bool darkMode,
+       bool themingEnabled)
     {
-        using Bitmap normalBitmap = new(30, 30);
-        using Bitmap hotBitmap = new(30, 30);
-        using Graphics normalGraphics = Graphics.FromImage(normalBitmap);
-        using Graphics hotGraphics = Graphics.FromImage(hotBitmap);
+        Application.RenderWithVisualStyles.Should().BeTrue();
+        SystemInformation.HighContrast.Should().BeFalse();
 
-        Rectangle bounds = new(2, 2, 20, 20);
+        using AppContextSwitchScope switchScope = new(
+           "System.Windows.Forms.DataGridViewDarkModeTheming",
+            enable: themingEnabled);
 
-        InvokeDrawDarkModeReadOnlyButton(
-            normalGraphics,
-            bounds,
-            ComboBoxState.Normal);
+        SystemColorMode? previousColorMode =
+           typeof(Application).TestAccessor.Dynamic.s_colorMode;
+        bool previousHover =
+           typeof(DataGridViewComboBoxCell).TestAccessor.Dynamic.s_mouseInDropDownButtonBounds;
 
-        InvokeDrawDarkModeReadOnlyButton(
-            hotGraphics,
-            bounds,
-            ComboBoxState.Hot);
+        try
+        {
+            typeof(Application).TestAccessor.Dynamic.s_colorMode =
+                 darkMode ? SystemColorMode.Dark : SystemColorMode.Classic;
 
-        Color normalBackColor = normalBitmap.GetPixel(10, 10);
-        Color hotBackColor = hotBitmap.GetPixel(10, 10);
-        Color normalBorderColor = normalBitmap.GetPixel(
-            bounds.Left,
-            bounds.Top);
-        Color hotBorderColor = hotBitmap.GetPixel(
-            bounds.Left,
-            bounds.Top);
+            using DataGridView grid = new() { AllowUserToAddRows = false };
+            using DataGridViewComboBoxColumn column = new()
+            {
+                FlatStyle = flatStyle,
+                DisplayStyle = DataGridViewComboBoxDisplayStyle.DropDownButton
+            };
+            grid.Columns.Add(column);
+            grid.Rows.Add();
 
-        hotBackColor.Should().NotBe(normalBackColor);
-        hotBorderColor.Should().NotBe(normalBorderColor);
+            var cell = (DataGridViewComboBoxCell)grid[0, 0];
+            grid.TestAccessor.Dynamic._ptMouseEnteredCell = new Point(0, 0);
+
+            using Bitmap bitmap = new(100, 30);
+            using Graphics graphics = Graphics.FromImage(bitmap);
+            Rectangle bounds = new(0, 0, bitmap.Width, bitmap.Height);
+            DataGridViewCellStyle style = new() { Font = SystemFonts.DefaultFont };
+            DataGridViewAdvancedBorderStyle borderStyle = new()
+            {
+                All = DataGridViewAdvancedCellBorderStyle.None
+            };
+
+            foreach (bool hot in new[] { false, true, false })
+            {
+                typeof(DataGridViewComboBoxCell).TestAccessor.Dynamic
+                     .s_mouseInDropDownButtonBounds = hot;
+                graphics.Clear(Color.Magenta);
+
+                cell.TestAccessor.Dynamic.Paint(
+                    graphics,
+                    bounds,
+                    bounds,
+                    0,
+                    DataGridViewElementStates.None,
+                    null,
+                    null,
+                    null,
+                    style,
+                    borderStyle,
+                   DataGridViewPaintParts.ContentBackground);
+
+                ComboBoxState expectedState = darkMode && themingEnabled && hot
+                    ? ComboBoxState.Hot
+                    : ComboBoxState.Normal;
+
+                VisualStyleRenderer arrowRenderer =
+                   typeof(ComboBoxRenderer).TestAccessor.Dynamic.t_visualStyleRenderer;
+                arrowRenderer.State.Should().Be((int)expectedState);
+
+                if (darkMode && themingEnabled)
+                {
+                    int background = hot ? 70 : 45;
+                    int border = hot ? 160 : 100;
+
+                    bitmap.GetPixel(10, 10).ToArgb().Should().Be(
+                        Color.FromArgb(background, background, background).ToArgb());
+                    bitmap.GetPixel(0, 0).ToArgb().Should().Be(
+                        Color.FromArgb(border, border, border).ToArgb());
+                }
+            }
+        }
+        finally
+        {
+            typeof(Application).TestAccessor.Dynamic.s_colorMode = previousColorMode;
+            typeof(DataGridViewComboBoxCell).TestAccessor.Dynamic
+                 .s_mouseInDropDownButtonBounds = previousHover;
+        }
     }
 
     [WinFormsFact]

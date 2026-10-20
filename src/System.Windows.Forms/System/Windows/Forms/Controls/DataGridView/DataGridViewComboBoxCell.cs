@@ -2060,7 +2060,9 @@ public partial class DataGridViewComboBoxCell : DataGridViewCell
                                 else
                                 {
                                     DataGridViewComboBoxCellRenderer.DrawReadOnlyButton(g, valBounds, comboBoxState);
-                                    DataGridViewComboBoxCellRenderer.DrawDropDownButton(g, dropRect, comboBoxState);
+                                    DataGridViewComboBoxCellRenderer.DrawDropDownButton(g, dropRect, Application.IsDarkModeEnabled && AppContextSwitches.DataGridViewDarkModeTheming
+                                       ? comboBoxState
+                                       : ComboBoxState.Normal);
                                 }
 
                                 if (SystemInformation.HighContrast)
