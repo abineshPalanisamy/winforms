@@ -4302,9 +4302,10 @@ public partial class DataGridViewTests : IDisposable
             SortMode = DataGridViewColumnSortMode.NotSortable
         };
 
-        column.HeaderCell.Style.SelectionForeColor = Color.Yellow;
-
+        _dataGridView.ColumnHeadersDefaultCellStyle.SelectionForeColor = Color.Lime;
+        _dataGridView.RowHeadersDefaultCellStyle.SelectionForeColor = Color.Lime;
         _dataGridView.Columns.Add(column);
+        _dataGridView.Rows.Add();
         _dataGridView.SelectionMode = DataGridViewSelectionMode.FullColumnSelect;
 
         dynamic accessor = new TestAccessor<DataGridView>(_dataGridView).Dynamic;
@@ -4313,7 +4314,18 @@ public partial class DataGridViewTests : IDisposable
         _dataGridView.ClearSelection();
         column.Selected = true;
 
+        column.HeaderCell.InheritedStyle.SelectionForeColor.Should().Be(Color.Lime);
+        _dataGridView.Rows[0].HeaderCell.InheritedStyle.SelectionForeColor
+             .Should().Be(Color.Lime);
+
+        column.HeaderCell.Style.SelectionForeColor = Color.Yellow;
+        _dataGridView.Rows[0].HeaderCell.Style.SelectionForeColor = Color.Yellow;
+
+        accessor.ApplyDarkModeTheming();
+
         column.HeaderCell.InheritedStyle.SelectionForeColor.Should().Be(Color.Yellow);
+        _dataGridView.Rows[0].HeaderCell.InheritedStyle.SelectionForeColor
+             .Should().Be(Color.Yellow);
     }
 
     private static TestDataGridView CreateGrid()
