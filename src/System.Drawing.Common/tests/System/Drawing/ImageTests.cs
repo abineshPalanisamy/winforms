@@ -695,6 +695,42 @@ public class ImageTests
         using Image image2 = Image.FromStream(new NonSeekableStreamWrapper(stream));
     }
 
+    [Fact]
+    public void Save_WebpWithoutEncoder_ThrowsNotSupportedException()
+    {
+        using Bitmap bitmap = new(1, 1);
+        using var file = TempFile.Create();
+        ImageFormat format = new(PInvokeCore.ImageFormatWEBP);
+
+        File.Delete(file.Path);
+
+        Assert.Throws<NotSupportedException>(
+            () => bitmap.Save(file.Path, format));
+
+        Assert.False(File.Exists(file.Path));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Save_MemoryBitmap_UsesPng(bool explicitFormat)
+    {
+        using Bitmap bitmap = new(1, 1);
+        using var file = TempFile.Create();
+
+        if (explicitFormat)
+        {
+            bitmap.Save(file.Path, ImageFormat.MemoryBmp);
+        }
+        else
+        {
+            bitmap.Save(file.Path);
+        }
+
+        using Image saved = Image.FromFile(file.Path);
+        Assert.Equal(ImageFormat.Png, saved.RawFormat);
+    }
+
     public class NonSeekableStreamWrapper : Stream
     {
         private readonly Stream _innerStream;
