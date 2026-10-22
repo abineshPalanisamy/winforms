@@ -4,6 +4,7 @@
 using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 
 namespace System.Windows.Forms;
@@ -57,7 +58,11 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     private bool _splitBegin;
     private bool _splitMove;
     private bool _splitBreak;
-    private bool _useLiveSplitterResize;
+
+    // Retain the gesture's live identity through cleanup even if eligibility changes.
+    private bool _isLiveResizeGesture;
+    private bool _endingLiveResize;
+    private bool _liveResizeCancelPending;
 
     // Split Cursor
     private Cursor? _overrideCursor;
@@ -91,14 +96,33 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     // Initialization flag for ISupportInitialize
     private bool _initializing;
 
-    private bool UseLiveSplitterResize
+    private bool IsLiveResizeEligible
         => EffectiveVisualStylesMode >= VisualStylesMode.Net11;
 
     private bool IsSplitterResizeActive
         => _splitterClick || _splitBegin;
 
-    private bool IsLiveSplitterResizeActive
-        => _useLiveSplitterResize && IsSplitterResizeActive;
+    private bool IsLiveResizeActive
+        => _isLiveResizeGesture && IsSplitterResizeActive && IsLiveResizeEligible;
+
+    private bool IsResizeUnavailable
+        => IsDisposed
+            || GetAnyDisposingInHierarchy()
+            || Panel1.IsDisposed
+            || Panel1.Disposing
+            || Panel2.IsDisposed
+            || Panel2.Disposing;
+
+    private bool CancelIneligibleLiveResize()
+    {
+        if (!_isLiveResizeGesture || IsLiveResizeEligible)
+        {
+            return false;
+        }
+
+        SplitEnd(false);
+        return true;
+    }
 
     private static bool IsSplitterMoveKey(Keys keyData)
         => keyData is Keys.Right or Keys.Down or Keys.Left or Keys.Up;
@@ -111,6 +135,10 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
         // either the right or bottom panel - LTR
         // either the left or bottom panel - RTL
         Panel2 = new SplitterPanel(this);
+        Panel1.HandleDestroyed += OnPanelUnavailable;
+        Panel1.Disposed += OnPanelUnavailable;
+        Panel2.HandleDestroyed += OnPanelUnavailable;
+        Panel2.Disposed += OnPanelUnavailable;
         _splitterRect = default;
 
         SetStyle(ControlStyles.SupportsTransparentBackColor, true);
@@ -119,6 +147,55 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
         ((TypedControlCollection)Controls).AddInternal(Panel1);
         ((TypedControlCollection)Controls).AddInternal(Panel2);
         UpdateSplitter();
+    }
+
+    /// <inheritdoc/>
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            ResetSplitterResize();
+        }
+
+        base.Dispose(disposing);
+    }
+
+    private void OnPanelUnavailable(object? sender, EventArgs e)
+    {
+        if (sender is SplitterPanel panel
+            && (panel.Disposing || panel.IsDisposed)
+            && !IsDisposed
+            && !GetAnyDisposingInHierarchy())
+        {
+            bool releaseCapture = IsSplitterResizeActive || _splitterDrag || _splitContainerMessageFilter is not null;
+            ResetSplitterResize();
+
+            if (releaseCapture)
+            {
+                Capture = false;
+            }
+        }
+    }
+
+    private void ResetSplitterResize()
+    {
+        if (_splitContainerMessageFilter is not null)
+        {
+            Application.RemoveMessageFilter(_splitContainerMessageFilter);
+            _splitContainerMessageFilter = null;
+        }
+
+        _splitterClick = false;
+        _splitterDrag = false;
+        _splitBegin = false;
+        _splitMove = false;
+        _splitBreak = false;
+        _lastDrawSplit = -1;
+        _anchor = Point.Empty;
+        _lastNotifiedSplitterDistance = null;
+        _isLiveResizeGesture = false;
+        _endingLiveResize = false;
+        _liveResizeCancelPending = false;
     }
 
     /// <summary>
@@ -660,6 +737,11 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
 
         ArgumentOutOfRangeException.ThrowIfNegative(value, nameof(SplitterDistance));
 
+        if (IsResizeUnavailable)
+        {
+            return;
+        }
+
         try
         {
             _setSplitterDistance = true;
@@ -707,6 +789,11 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
                 Panel1.HeightInternal = SplitterDistance;
             }
 
+            if (IsResizeUnavailable)
+            {
+                return;
+            }
+
             switch (_fixedPanel)
             {
                 case FixedPanel.Panel1:
@@ -732,9 +819,9 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
             _setSplitterDistance = false;
         }
 
-        if (raiseSplitterMoved)
+        if (raiseSplitterMoved && !IsResizeUnavailable)
         {
-            if (IsSplitterResizeActive)
+            if (IsLiveResizeActive)
             {
                 _lastNotifiedSplitterDistance = _splitDistance;
             }
@@ -951,7 +1038,14 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     protected override void OnKeyDown(KeyEventArgs e)
     {
         Debug.Assert(Enabled, "SplitContainer.OnKeyDown should not be called if the button is disabled");
+        bool wasLiveResize = _isLiveResizeGesture;
         base.OnKeyDown(e);
+        if (IsResizeUnavailable
+            || (wasLiveResize && (!_isLiveResizeGesture || CancelIneligibleLiveResize())))
+        {
+            return;
+        }
+
         // If the Panel1MinSize + Panel2MinSize < SplitContainer.Size then carry on the splitter move...
         if (IsSplitterMovable && !IsSplitterFixed)
         {
@@ -967,9 +1061,12 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
             {
                 if (!_splitBegin)
                 {
-                    _initialSplitterDistance = SplitterDistanceInternal;
-                    _lastNotifiedSplitterDistance = null;
-                    _useLiveSplitterResize = UseLiveSplitterResize;
+                    _isLiveResizeGesture = IsLiveResizeEligible;
+                    if (_isLiveResizeGesture)
+                    {
+                        _initialSplitterDistance = SplitterDistanceInternal;
+                        _lastNotifiedSplitterDistance = null;
+                    }
                 }
 
                 if (_splitBegin)
@@ -1003,15 +1100,15 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
                     _splitBegin = true;
                 }
 
-                if (_useLiveSplitterResize)
+                if (_isLiveResizeGesture)
                 {
-                    Rectangle r = CalcSplitLine(_splitterDistance, 0);
-                    SplitterCancelEventArgs se = new(
+                    Rectangle bounds = CalcSplitLine(_splitterDistance, 0);
+                    SplitterCancelEventArgs movingArgs = new(
                         Left + SplitterRectangle.X + SplitterRectangle.Width / 2,
                         Top + SplitterRectangle.Y + SplitterRectangle.Height / 2,
-                        r.X,
-                        r.Y);
-                    ProcessSplitterMoving(se);
+                        bounds.X,
+                        bounds.Y);
+                    ProcessSplitterMoving(movingArgs);
                 }
 
                 // draw Helper start
@@ -1040,12 +1137,19 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     /// </summary>
     protected override void OnKeyUp(KeyEventArgs e)
     {
+        bool wasLiveResize = _isLiveResizeGesture;
         base.OnKeyUp(e);
+        if (IsResizeUnavailable
+            || (wasLiveResize && (!_isLiveResizeGesture || CancelIneligibleLiveResize())))
+        {
+            return;
+        }
+
         if (_splitBegin && IsSplitterMovable)
         {
             if (_splitterFocused && IsSplitterMoveKey(e.KeyData))
             {
-                if (_useLiveSplitterResize)
+                if (_isLiveResizeGesture)
                 {
                     RaiseSplitterMovedAfterLiveResize();
                 }
@@ -1057,8 +1161,11 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
 
                 _splitBegin = false;
                 _splitMove = false;
-                _lastNotifiedSplitterDistance = null;
-                _useLiveSplitterResize = false;
+                if (_isLiveResizeGesture)
+                {
+                    _lastNotifiedSplitterDistance = null;
+                    _isLiveResizeGesture = false;
+                }
             }
         }
 
@@ -1066,6 +1173,11 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
         {
             _splitBreak = false;
             SplitEnd(false);
+        }
+
+        if (IsResizeUnavailable)
+        {
+            return;
         }
 
         // Problem after KeyUp- focus rect and reversible lines leave a trace behind on the splitter.
@@ -1084,14 +1196,22 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     /// </summary>
     protected override void OnLayout(LayoutEventArgs e)
     {
+        if (IsResizeUnavailable)
+        {
+            return;
+        }
+
         SetInnerMostBorder(this);
 
-        if (IsSplitterMovable && !_setSplitterDistance)
+        if (!IsResizeUnavailable && IsSplitterMovable && !_setSplitterDistance)
         {
             ResizeSplitContainer();
         }
 
-        base.OnLayout(e);
+        if (!IsResizeUnavailable)
+        {
+            base.OnLayout(e);
+        }
     }
 
     /// <summary>
@@ -1106,7 +1226,14 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     [EditorBrowsable(EditorBrowsableState.Advanced)]
     protected override void OnMouseMove(MouseEventArgs e)
     {
+        bool wasLiveResize = _isLiveResizeGesture;
         base.OnMouseMove(e);
+        if (IsResizeUnavailable
+            || (wasLiveResize && (!_isLiveResizeGesture || CancelIneligibleLiveResize())))
+        {
+            return;
+        }
+
         if (!IsSplitterFixed && IsSplitterMovable)
         {
             // change cursor if default and user hasnt changed the cursor.
@@ -1172,6 +1299,11 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     protected override void OnMouseDown(MouseEventArgs e)
     {
         base.OnMouseDown(e);
+        if (IsResizeUnavailable)
+        {
+            return;
+        }
+
         // If the Panel1MinSize + Panel2MinSize < SplitContainer.Size then carry on the splitter move...
         if (IsSplitterMovable && SplitterRectangle.Contains(e.Location))
         {
@@ -1197,11 +1329,23 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
                     }
                 }
 
+                if (IsResizeUnavailable)
+                {
+                    return;
+                }
+
                 SetActiveControl(null);
+                if (IsResizeUnavailable)
+                {
+                    return;
+                }
+
                 _nextActiveControl = Panel2;
 
-                SplitBegin(e.X, e.Y);
-                _splitterClick = true;
+                if (SplitBegin(e.X, e.Y))
+                {
+                    _splitterClick = true;
+                }
             }
         }
     }
@@ -1211,7 +1355,14 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     /// </summary>
     protected override void OnMouseUp(MouseEventArgs e)
     {
+        bool wasLiveResize = _isLiveResizeGesture;
         base.OnMouseUp(e);
+        if (IsResizeUnavailable
+            || (wasLiveResize && (!_isLiveResizeGesture || CancelIneligibleLiveResize())))
+        {
+            return;
+        }
+
         if (!Enabled)
         {
             return;
@@ -1219,6 +1370,11 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
 
         if (!IsSplitterFixed && IsSplitterMovable && _splitterClick)
         {
+            if (!_isLiveResizeGesture)
+            {
+                Capture = false;
+            }
+
             if (_splitterDrag)
             {
                 CalcSplitLine(GetSplitterDistance(e.X, e.Y), 0);
@@ -1249,8 +1405,13 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     /// </summary>
     protected override void OnPaint(PaintEventArgs e)
     {
+        if (IsResizeUnavailable)
+        {
+            return;
+        }
+
         base.OnPaint(e);
-        if (Focused)
+        if (!IsResizeUnavailable && Focused)
         {
             DrawFocus(e.Graphics, SplitterRectangle);
         }
@@ -1289,11 +1450,23 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
 
     private void RaiseSplitterMovedAfterLiveResize()
     {
-        if (_splitDistance != _initialSplitterDistance
-            && _lastNotifiedSplitterDistance != _splitDistance)
+        if (IsResizeUnavailable || CancelIneligibleLiveResize())
         {
+            return;
+        }
+
+        if (_splitDistance != (_lastNotifiedSplitterDistance ?? _initialSplitterDistance))
+        {
+            _lastNotifiedSplitterDistance = _splitDistance;
             RaiseSplitterMoved();
         }
+    }
+
+    [EditorBrowsable(EditorBrowsableState.Advanced)]
+    protected override void OnVisualStylesModeChanged(EventArgs e)
+    {
+        CancelIneligibleLiveResize();
+        base.OnVisualStylesModeChanged(e);
     }
 
     [EditorBrowsable(EditorBrowsableState.Advanced)]
@@ -1396,25 +1569,63 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     /// </summary>
     private void ApplySplitterDistance(bool raiseSplitterMoved = true)
     {
-        bool suspendRedraw = IsLiveSplitterResizeActive && IsHandleCreated;
+        if (IsResizeUnavailable)
+        {
+            return;
+        }
+
+        bool suspendRedraw = IsLiveResizeActive && IsHandleCreated;
         if (suspendRedraw)
         {
             BeginUpdateInternal();
         }
 
+        ExceptionDispatchInfo? resizeException = null;
         try
         {
             using (new Layout.LayoutTransaction(this, this, "SplitterDistance", false))
             {
-                SetSplitterDistance(_splitterDistance, raiseSplitterMoved);
+                try
+                {
+                    SetSplitterDistance(_splitterDistance, raiseSplitterMoved);
+                }
+                catch (Exception ex)
+                {
+                    resizeException = ExceptionDispatchInfo.Capture(ex);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            if (resizeException is null)
+            {
+                resizeException = ExceptionDispatchInfo.Capture(ex);
+            }
+            else
+            {
+                resizeException.SourceException.Data["SplitContainer.LayoutCleanupException"] = ex;
             }
         }
         finally
         {
-            if (suspendRedraw)
+            try
             {
-                EndUpdateInternal(invalidate: false);
+                if (suspendRedraw)
+                {
+                    EndUpdateInternal(invalidate: false);
+                }
             }
+            catch (Exception ex) when (resizeException is not null)
+            {
+                resizeException.SourceException.Data["SplitContainer.RedrawCleanupException"] = ex;
+            }
+        }
+
+        resizeException?.Throw();
+
+        if (IsResizeUnavailable)
+        {
+            return;
         }
 
         // We need to invalidate when we have transparent background.
@@ -1440,21 +1651,30 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
             _splitterRect.Y = Location.Y + SplitterDistanceInternal;
         }
 
-        if (suspendRedraw)
+        if (suspendRedraw && IsLiveResizeActive)
         {
-            RedrawAfterLiveSplitterResize();
+            RedrawAfterLiveResize();
         }
     }
 
-    private unsafe void RedrawAfterLiveSplitterResize()
+    private unsafe void RedrawAfterLiveResize()
     {
-        if (!IsHandleCreated)
+        if (IsResizeUnavailable || !IsLiveResizeActive || !IsHandleCreated)
         {
             return;
         }
 
-        RedrawPanelAfterLiveSplitterResize(Panel1);
-        RedrawPanelAfterLiveSplitterResize(Panel2);
+        RedrawPanelAfterLiveResize(Panel1);
+        if (IsResizeUnavailable || !IsLiveResizeActive)
+        {
+            return;
+        }
+
+        RedrawPanelAfterLiveResize(Panel2);
+        if (IsResizeUnavailable || !IsLiveResizeActive)
+        {
+            return;
+        }
 
         REDRAW_WINDOW_FLAGS flags = REDRAW_WINDOW_FLAGS.RDW_INVALIDATE
             | REDRAW_WINDOW_FLAGS.RDW_ERASE
@@ -1472,9 +1692,9 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
             flags);
     }
 
-    private static unsafe void RedrawPanelAfterLiveSplitterResize(SplitterPanel panel)
+    private static unsafe void RedrawPanelAfterLiveResize(SplitterPanel panel)
     {
-        if (!panel.IsHandleCreated)
+        if (panel.IsDisposed || panel.GetAnyDisposingInHierarchy() || !panel.IsHandleCreated)
         {
             return;
         }
@@ -1547,6 +1767,11 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     /// </summary>
     private void DrawSplitBar(int mode)
     {
+        if (IsResizeUnavailable)
+        {
+            return;
+        }
+
         if (mode != DrawStart && _lastDrawSplit != -1)
         {
             DrawSplitHelper(_lastDrawSplit);
@@ -1599,6 +1824,11 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     /// </summary>
     private void DrawSplitHelper(int splitSize)
     {
+        if (IsResizeUnavailable)
+        {
+            return;
+        }
+
         Rectangle r = CalcSplitLine(splitSize, 3);
         using GetDcScope dc = new(HWND, HRGN.Null, GET_DCX_FLAGS.DCX_CACHE | GET_DCX_FLAGS.DCX_LOCKWINDOWUPDATE);
         HBRUSH halftone = ControlPaint.CreateHalftoneHBRUSH();
@@ -1614,6 +1844,9 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     /// </summary>
     private int GetSplitterDistance(int x, int y)
     {
+        int initialDistance = _isLiveResizeGesture
+            ? _initialSplitterDistance
+            : Orientation == Orientation.Vertical ? Panel1.Width : Panel1.Height;
         int delta;
         if (Orientation == Orientation.Vertical)
         {
@@ -1633,17 +1866,17 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
             case Orientation.Vertical:
                 if (RightToLeft == RightToLeft.No)
                 {
-                    size = Math.Max(_initialSplitterDistance + delta, _borderSize);
+                    size = Math.Max(initialDistance + delta, _borderSize);
                 }
                 else
                 {
                     // In RTL negative delta actually means increasing the size....
-                    size = Math.Max(_initialSplitterDistance - delta, _borderSize);
+                    size = Math.Max(initialDistance - delta, _borderSize);
                 }
 
                 break;
             case Orientation.Horizontal:
-                size = Math.Max(_initialSplitterDistance + delta, _borderSize);
+                size = Math.Max(initialDistance + delta, _borderSize);
                 break;
         }
 
@@ -1677,7 +1910,7 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     /// </summary>
     private void RepaintSplitterRect()
     {
-        if (IsHandleCreated)
+        if (!IsResizeUnavailable && IsHandleCreated)
         {
             try
             {
@@ -1722,7 +1955,12 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
 
     private void UpdateSplitterRect(bool vertical)
     {
-        if (!IsLiveSplitterResizeActive)
+        if (IsResizeUnavailable)
+        {
+            return;
+        }
+
+        if (!IsLiveResizeActive)
         {
             RepaintSplitterRect();
         }
@@ -1735,155 +1973,281 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     /// </summary>
     private void ResizeSplitContainer()
     {
-        if (_splitContainerScaling)
+        if (_splitContainerScaling || IsResizeUnavailable)
         {
             return;
         }
 
         Panel1.SuspendLayout();
         Panel2.SuspendLayout();
-
-        if (Width == 0)
+        bool layoutCompleted = false;
+        ExceptionDispatchInfo? resizeException = null;
+        try
         {
-            // Set the correct Width iif the WIDTH has changed to ZERO.
-            Panel1.Size = new Size(0, Panel1.Height);
-            Panel2.Size = new Size(0, Panel2.Height);
-        }
-        else if (Height == 0)
-        {
-            // Set the correct Height iif the HEIGHT has changed to ZERO.
-            Panel1.Size = new Size(Panel1.Width, 0);
-            Panel2.Size = new Size(Panel2.Width, 0);
-        }
-        else
-        {
-            if (Orientation == Orientation.Vertical)
+            if (Width == 0)
             {
-                // If no panel is collapsed then do the default ...
-                if (!CollapsedMode)
+                // Set the correct Width iif the WIDTH has changed to ZERO.
+                Panel1.Size = new Size(0, Panel1.Height);
+                if (IsResizeUnavailable)
                 {
-                    if (FixedPanel == FixedPanel.Panel1)
-                    {
-                        Panel1.Size = new Size(_panelSize, Height);
-                        Panel2.Size = new Size(Math.Max(Width - _panelSize - SplitterWidthInternal, Panel2MinSize), Height);
-                    }
+                    return;
+                }
 
-                    if (FixedPanel == FixedPanel.Panel2)
-                    {
-                        Panel2.Size = new Size(_panelSize, Height);
-                        _splitterDistance = Math.Max(Width - _panelSize - SplitterWidthInternal, Panel1MinSize);
-                        Panel1.WidthInternal = _splitterDistance;
-                        Panel1.HeightInternal = Height;
-                    }
+                Panel2.Size = new Size(0, Panel2.Height);
+            }
+            else if (Height == 0)
+            {
+                // Set the correct Height iif the HEIGHT has changed to ZERO.
+                Panel1.Size = new Size(Panel1.Width, 0);
+                if (IsResizeUnavailable)
+                {
+                    return;
+                }
 
-                    if (FixedPanel == FixedPanel.None)
+                Panel2.Size = new Size(Panel2.Width, 0);
+            }
+            else
+            {
+                if (Orientation == Orientation.Vertical)
+                {
+                    // If no panel is collapsed then do the default ...
+                    if (!CollapsedMode)
                     {
-                        if (_ratioWidth != 0.0)
+                        if (FixedPanel == FixedPanel.Panel1)
                         {
-                            _splitterDistance = Math.Max((int)(Math.Floor(Width / _ratioWidth)), Panel1MinSize);
+                            Panel1.Size = new Size(_panelSize, Height);
+                            if (IsResizeUnavailable)
+                            {
+                                return;
+                            }
+
+                            Panel2.Size = new Size(Math.Max(Width - _panelSize - SplitterWidthInternal, Panel2MinSize), Height);
                         }
 
-                        Panel1.WidthInternal = _splitterDistance; // Default splitter distance from left or top.
-                        Panel1.HeightInternal = Height;
-                        Panel2.Size = new Size(Math.Max(Width - _splitterDistance - SplitterWidthInternal, Panel2MinSize), Height);
-                    }
+                        if (FixedPanel == FixedPanel.Panel2)
+                        {
+                            Panel2.Size = new Size(_panelSize, Height);
+                            if (IsResizeUnavailable)
+                            {
+                                return;
+                            }
 
-                    if (RightToLeft == RightToLeft.No)
-                    {
-                        Panel2.Location = new Point(Panel1.WidthInternal + SplitterWidthInternal, 0);
+                            _splitterDistance = Math.Max(Width - _panelSize - SplitterWidthInternal, Panel1MinSize);
+                            Panel1.WidthInternal = _splitterDistance;
+                            if (IsResizeUnavailable)
+                            {
+                                return;
+                            }
+
+                            Panel1.HeightInternal = Height;
+                        }
+
+                        if (FixedPanel == FixedPanel.None)
+                        {
+                            if (_ratioWidth != 0.0)
+                            {
+                                _splitterDistance = Math.Max((int)(Math.Floor(Width / _ratioWidth)), Panel1MinSize);
+                            }
+
+                            Panel1.WidthInternal = _splitterDistance; // Default splitter distance from left or top.
+                            if (IsResizeUnavailable)
+                            {
+                                return;
+                            }
+
+                            Panel1.HeightInternal = Height;
+                            if (IsResizeUnavailable)
+                            {
+                                return;
+                            }
+
+                            Panel2.Size = new Size(Math.Max(Width - _splitterDistance - SplitterWidthInternal, Panel2MinSize), Height);
+                        }
+
+                        if (IsResizeUnavailable)
+                        {
+                            return;
+                        }
+
+                        if (RightToLeft == RightToLeft.No)
+                        {
+                            Panel2.Location = new Point(Panel1.WidthInternal + SplitterWidthInternal, 0);
+                        }
+                        else
+                        {
+                            Panel1.Location = new Point(Width - Panel1.WidthInternal, 0);
+                        }
+
+                        if (IsResizeUnavailable)
+                        {
+                            return;
+                        }
+
+                        RepaintSplitterRect();
+                        SetSplitterRect(true);
                     }
                     else
                     {
-                        Panel1.Location = new Point(Width - Panel1.WidthInternal, 0);
-                    }
-
-                    RepaintSplitterRect();
-                    SetSplitterRect(true);
-                }
-                else
-                {
-                    if (Panel1Collapsed)
-                    {
-                        Panel2.Size = Size;
-                        Panel2.Location = new Point(0, 0);
-                    }
-                    else if (Panel2Collapsed)
-                    {
-                        Panel1.Size = Size;
-                        Panel1.Location = new Point(0, 0);
-                    }
-                }
-            }
-            else if (Orientation == Orientation.Horizontal)
-            {
-                // If no panel is collapsed then do the default ...
-                if (!CollapsedMode)
-                {
-                    if (FixedPanel == FixedPanel.Panel1)
-                    {
-                        // Default splitter distance from left or top.
-                        Panel1.Size = new Size(Width, _panelSize);
-                        int panel2Start = _panelSize + SplitterWidthInternal;
-                        Panel2.Size = new Size(Width, Math.Max(Height - panel2Start, Panel2MinSize));
-                        Panel2.Location = new Point(0, panel2Start);
-                    }
-
-                    if (FixedPanel == FixedPanel.Panel2)
-                    {
-                        Panel2.Size = new Size(Width, _panelSize);
-                        _splitterDistance = Math.Max(Height - Panel2.Height - SplitterWidthInternal, Panel1MinSize);
-                        Panel1.HeightInternal = _splitterDistance;
-                        Panel1.WidthInternal = Width;
-                        int panel2Start = _splitterDistance + SplitterWidthInternal;
-                        Panel2.Location = new Point(0, panel2Start);
-                    }
-
-                    if (FixedPanel == FixedPanel.None)
-                    {
-                        // NO PANEL FIXED !!
-                        if (_ratioHeight != 0.0)
+                        if (Panel1Collapsed)
                         {
-                            _splitterDistance = Math.Max((int)(Math.Floor(Height / _ratioHeight)), Panel1MinSize);
+                            Panel2.Size = Size;
+                            if (IsResizeUnavailable)
+                            {
+                                return;
+                            }
+
+                            Panel2.Location = new Point(0, 0);
+                        }
+                        else if (Panel2Collapsed)
+                        {
+                            Panel1.Size = Size;
+                            if (IsResizeUnavailable)
+                            {
+                                return;
+                            }
+
+                            Panel1.Location = new Point(0, 0);
+                        }
+                    }
+                }
+                else if (Orientation == Orientation.Horizontal)
+                {
+                    // If no panel is collapsed then do the default ...
+                    if (!CollapsedMode)
+                    {
+                        if (FixedPanel == FixedPanel.Panel1)
+                        {
+                            // Default splitter distance from left or top.
+                            Panel1.Size = new Size(Width, _panelSize);
+                            if (IsResizeUnavailable)
+                            {
+                                return;
+                            }
+
+                            int panel2Start = _panelSize + SplitterWidthInternal;
+                            Panel2.Size = new Size(Width, Math.Max(Height - panel2Start, Panel2MinSize));
+                            if (IsResizeUnavailable)
+                            {
+                                return;
+                            }
+
+                            Panel2.Location = new Point(0, panel2Start);
                         }
 
-                        Panel1.HeightInternal = _splitterDistance; // Default splitter distance from left or top.
-                        Panel1.WidthInternal = Width;
-                        int panel2Start = _splitterDistance + SplitterWidthInternal;
-                        Panel2.Size = new Size(Width, Math.Max(Height - panel2Start, Panel2MinSize));
-                        Panel2.Location = new Point(0, panel2Start);
-                    }
+                        if (FixedPanel == FixedPanel.Panel2)
+                        {
+                            Panel2.Size = new Size(Width, _panelSize);
+                            if (IsResizeUnavailable)
+                            {
+                                return;
+                            }
 
-                    RepaintSplitterRect();
-                    SetSplitterRect(false);
+                            _splitterDistance = Math.Max(Height - Panel2.Height - SplitterWidthInternal, Panel1MinSize);
+                            Panel1.HeightInternal = _splitterDistance;
+                            if (IsResizeUnavailable)
+                            {
+                                return;
+                            }
+
+                            Panel1.WidthInternal = Width;
+                            if (IsResizeUnavailable)
+                            {
+                                return;
+                            }
+
+                            int panel2Start = _splitterDistance + SplitterWidthInternal;
+                            Panel2.Location = new Point(0, panel2Start);
+                        }
+
+                        if (FixedPanel == FixedPanel.None)
+                        {
+                            // NO PANEL FIXED !!
+                            if (_ratioHeight != 0.0)
+                            {
+                                _splitterDistance = Math.Max((int)(Math.Floor(Height / _ratioHeight)), Panel1MinSize);
+                            }
+
+                            Panel1.HeightInternal = _splitterDistance; // Default splitter distance from left or top.
+                            if (IsResizeUnavailable)
+                            {
+                                return;
+                            }
+
+                            Panel1.WidthInternal = Width;
+                            if (IsResizeUnavailable)
+                            {
+                                return;
+                            }
+
+                            int panel2Start = _splitterDistance + SplitterWidthInternal;
+                            Panel2.Size = new Size(Width, Math.Max(Height - panel2Start, Panel2MinSize));
+                            if (IsResizeUnavailable)
+                            {
+                                return;
+                            }
+
+                            Panel2.Location = new Point(0, panel2Start);
+                        }
+
+                        if (IsResizeUnavailable)
+                        {
+                            return;
+                        }
+
+                        RepaintSplitterRect();
+                        SetSplitterRect(false);
+                    }
+                    else
+                    {
+                        if (Panel1Collapsed)
+                        {
+                            Panel2.Size = Size;
+                            if (IsResizeUnavailable)
+                            {
+                                return;
+                            }
+
+                            Panel2.Location = new Point(0, 0);
+                        }
+                        else if (Panel2Collapsed)
+                        {
+                            Panel1.Size = Size;
+                            if (IsResizeUnavailable)
+                            {
+                                return;
+                            }
+
+                            Panel1.Location = new Point(0, 0);
+                        }
+                    }
                 }
-                else
+
+                if (IsResizeUnavailable)
                 {
-                    if (Panel1Collapsed)
-                    {
-                        Panel2.Size = Size;
-                        Panel2.Location = new Point(0, 0);
-                    }
-                    else if (Panel2Collapsed)
-                    {
-                        Panel1.Size = Size;
-                        Panel1.Location = new Point(0, 0);
-                    }
+                    return;
+                }
+
+                try
+                {
+                    _resizeCalled = true;
+                    ApplySplitterDistance();
+                }
+                finally
+                {
+                    _resizeCalled = false;
                 }
             }
 
-            try
-            {
-                _resizeCalled = true;
-                ApplySplitterDistance();
-            }
-            finally
-            {
-                _resizeCalled = false;
-            }
+            layoutCompleted = true;
         }
-
-        Panel1.ResumeLayout();
-        Panel2.ResumeLayout();
+        catch (Exception ex)
+        {
+            resizeException = ExceptionDispatchInfo.Capture(ex);
+        }
+        finally
+        {
+            ResumePanelLayout(layoutCompleted, resizeException);
+        }
     }
 
     /// <summary>
@@ -2171,6 +2535,11 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     /// </summary>
     private void SetInnerMostBorder(SplitContainer sc)
     {
+        if (IsResizeUnavailable || sc.IsResizeUnavailable)
+        {
+            return;
+        }
+
         foreach (Control control in sc.Controls)
         {
             bool foundChildSplitContainer = false;
@@ -2187,7 +2556,17 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
                         }
 
                         panel.BorderStyle = BorderStyle.None;
+                        if (IsResizeUnavailable || sc.IsResizeUnavailable || splitContainer.IsResizeUnavailable)
+                        {
+                            return;
+                        }
+
                         SetInnerMostBorder(splitContainer);
+                        if (IsResizeUnavailable || sc.IsResizeUnavailable || splitContainer.IsResizeUnavailable)
+                        {
+                            return;
+                        }
+
                         foundChildSplitContainer = true;
                     }
                 }
@@ -2196,6 +2575,11 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
                 {
                     panel.BorderStyle = BorderStyle;
                 }
+            }
+
+            if (IsResizeUnavailable || sc.IsResizeUnavailable)
+            {
+                return;
             }
         }
     }
@@ -2234,24 +2618,45 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     /// <summary>
     ///  Begins the splitter moving.
     /// </summary>
-    private void SplitBegin(int x, int y)
+    private bool SplitBegin(int x, int y)
     {
+        if (IsResizeUnavailable)
+        {
+            return false;
+        }
+
         _anchor = new Point(x, y);
-        _initialSplitterDistance = SplitterDistanceInternal;
-        _lastNotifiedSplitterDistance = null;
+        _isLiveResizeGesture = IsLiveResizeEligible;
+        if (_isLiveResizeGesture)
+        {
+            _initialSplitterDistance = SplitterDistanceInternal;
+            _lastNotifiedSplitterDistance = null;
+        }
+
         _splitterDistance = GetSplitterDistance(x, y);
-        _useLiveSplitterResize = UseLiveSplitterResize;
+        if (!_isLiveResizeGesture)
+        {
+            _initialSplitterDistance = _splitterDistance;
+        }
 
         _splitContainerMessageFilter ??= new SplitContainerMessageFilter(this);
 
         Application.AddMessageFilter(_splitContainerMessageFilter);
 
+        bool wasLiveResize = _isLiveResizeGesture;
         Capture = true;
+        if (IsResizeUnavailable
+            || (wasLiveResize && (!_isLiveResizeGesture || CancelIneligibleLiveResize())))
+        {
+            return false;
+        }
 
-        if (!_useLiveSplitterResize)
+        if (!_isLiveResizeGesture)
         {
             DrawSplitBar(DrawStart);
         }
+
+        return true;
     }
 
     /// <summary>
@@ -2280,7 +2685,7 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
             }
         }
 
-        if (!_useLiveSplitterResize)
+        if (!_isLiveResizeGesture)
         {
             DrawSplitBar(DrawMove);
         }
@@ -2288,9 +2693,21 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
 
     private void ProcessSplitterMoving(SplitterCancelEventArgs e)
     {
+        if (IsResizeUnavailable)
+        {
+            return;
+        }
+
+        bool wasLiveResize = _isLiveResizeGesture;
         OnSplitterMoving(e);
 
-        if (!IsSplitterResizeActive)
+        if (IsResizeUnavailable)
+        {
+            return;
+        }
+
+        if (wasLiveResize
+            && (!_isLiveResizeGesture || !IsSplitterResizeActive || CancelIneligibleLiveResize()))
         {
             return;
         }
@@ -2299,7 +2716,7 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
         {
             SplitEnd(false);
         }
-        else if (_useLiveSplitterResize && _splitDistance != _splitterDistance)
+        else if (wasLiveResize && _splitDistance != _splitterDistance)
         {
             ApplySplitterDistance(raiseSplitterMoved: false);
         }
@@ -2310,59 +2727,120 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     /// </summary>
     private void SplitEnd(bool accept)
     {
-        if (!_useLiveSplitterResize)
+        if (IsResizeUnavailable)
+        {
+            return;
+        }
+
+        if (!_isLiveResizeGesture)
         {
             DrawSplitBar(DrawEnd);
+            if (_splitContainerMessageFilter is not null)
+            {
+                Application.RemoveMessageFilter(_splitContainerMessageFilter);
+                _splitContainerMessageFilter = null;
+            }
+
+            if (accept)
+            {
+                ApplySplitterDistance();
+            }
+            else if (_splitterDistance != _initialSplitterDistance)
+            {
+                _splitterClick = false;
+                _splitterDistance = SplitterDistanceInternal = _initialSplitterDistance;
+            }
+
+            _anchor = Point.Empty;
+            return;
         }
 
-        if (_splitContainerMessageFilter is not null)
+        if (_endingLiveResize)
         {
-            Application.RemoveMessageFilter(_splitContainerMessageFilter);
-            _splitContainerMessageFilter = null;
+            _liveResizeCancelPending |= !accept;
+            return;
         }
 
-        if (accept)
+        ExceptionDispatchInfo? resizeException = null;
+        _endingLiveResize = true;
+        try
         {
-            Capture = false;
-
-            if (_splitDistance != _splitterDistance)
+            accept &= IsLiveResizeEligible;
+            if (_splitContainerMessageFilter is not null)
             {
-                ApplySplitterDistance(raiseSplitterMoved: !_useLiveSplitterResize);
+                Application.RemoveMessageFilter(_splitContainerMessageFilter);
+                _splitContainerMessageFilter = null;
             }
 
-            if (_useLiveSplitterResize)
-            {
-                RaiseSplitterMovedAfterLiveResize();
-            }
-        }
-        else
-        {
-            _splitterDistance = _initialSplitterDistance;
-            if (_splitDistance != _initialSplitterDistance)
-            {
-                ApplySplitterDistance(raiseSplitterMoved: false);
-            }
-
-            if (_lastNotifiedSplitterDistance is int lastNotifiedSplitterDistance
-                && lastNotifiedSplitterDistance != _splitDistance)
-            {
-                RaiseSplitterMoved();
-            }
-
-            if (_splitterClick)
+            if (accept)
             {
                 Capture = false;
-                _splitterClick = false;
-                _splitterDrag = false;
+                accept = !IsResizeUnavailable && !_liveResizeCancelPending && IsLiveResizeEligible;
             }
 
-            _splitBegin = false;
-            _splitMove = false;
+            if (accept)
+            {
+                if (_splitDistance != _splitterDistance)
+                {
+                    ApplySplitterDistance(raiseSplitterMoved: false);
+                }
+
+                accept = !IsResizeUnavailable && !_liveResizeCancelPending && IsLiveResizeEligible;
+            }
+
+            if (accept)
+            {
+                RaiseSplitterMovedAfterLiveResize();
+                accept = !IsResizeUnavailable && !_liveResizeCancelPending && IsLiveResizeEligible;
+            }
+
+            if (!accept && !IsResizeUnavailable)
+            {
+                _splitterDistance = _initialSplitterDistance;
+                if (_splitDistance != _initialSplitterDistance)
+                {
+                    ApplySplitterDistance(raiseSplitterMoved: false);
+                }
+
+                if (!IsResizeUnavailable
+                    && _lastNotifiedSplitterDistance is int lastNotifiedSplitterDistance
+                    && lastNotifiedSplitterDistance != _splitDistance)
+                {
+                    RaiseSplitterMoved();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            resizeException = ExceptionDispatchInfo.Capture(ex);
+        }
+        finally
+        {
+            try
+            {
+                Capture = false;
+            }
+            catch (Exception ex) when (resizeException is not null)
+            {
+                // Keep the rollback or notification failure as the primary exception.
+                resizeException.SourceException.Data["SplitContainer.LiveResizeCaptureCleanupException"] = ex;
+            }
+            finally
+            {
+                _splitterClick = false;
+                _splitterDrag = false;
+                _splitBegin = false;
+                _splitMove = false;
+                _splitBreak = false;
+                _anchor = Point.Empty;
+                _lastNotifiedSplitterDistance = null;
+                _isLiveResizeGesture = false;
+                _endingLiveResize = false;
+                _liveResizeCancelPending = false;
+            }
         }
 
-        _anchor = Point.Empty;
-        _lastNotifiedSplitterDistance = null;
-        _useLiveSplitterResize = false;
+        resizeException?.Throw();
     }
 
     /// <summary>
@@ -2370,104 +2848,230 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     /// </summary>
     private void UpdateSplitter()
     {
-        if (_splitContainerScaling)
+        if (_splitContainerScaling || IsResizeUnavailable)
         {
             return;
         }
 
         Panel1.SuspendLayout();
         Panel2.SuspendLayout();
-        if (Orientation == Orientation.Vertical)
+        bool layoutCompleted = false;
+        ExceptionDispatchInfo? resizeException = null;
+        try
         {
-            bool isRTL = RightToLeft == RightToLeft.Yes;
-
-            // NO PANEL FIXED !!
-            if (!CollapsedMode)
+            if (Orientation == Orientation.Vertical)
             {
-                Panel1.HeightInternal = Height;
-                Panel1.WidthInternal = _splitterDistance; // Default splitter distance from left or top.
-                Panel2.Size = new Size(Width - _splitterDistance - SplitterWidthInternal, Height);
+                bool isRTL = RightToLeft == RightToLeft.Yes;
 
-                if (!isRTL)
+                // NO PANEL FIXED !!
+                if (!CollapsedMode)
                 {
-                    Panel1.Location = new Point(0, 0);
-                    Panel2.Location = new Point(_splitterDistance + SplitterWidthInternal, 0);
+                    Panel1.HeightInternal = Height;
+                    if (IsResizeUnavailable)
+                    {
+                        return;
+                    }
+
+                    Panel1.WidthInternal = _splitterDistance; // Default splitter distance from left or top.
+                    if (IsResizeUnavailable)
+                    {
+                        return;
+                    }
+
+                    Panel2.Size = new Size(Width - _splitterDistance - SplitterWidthInternal, Height);
+                    if (IsResizeUnavailable)
+                    {
+                        return;
+                    }
+
+                    if (!isRTL)
+                    {
+                        Panel1.Location = new Point(0, 0);
+                        if (IsResizeUnavailable)
+                        {
+                            return;
+                        }
+
+                        Panel2.Location = new Point(_splitterDistance + SplitterWidthInternal, 0);
+                    }
+                    else
+                    {
+                        Panel1.Location = new Point(Width - _splitterDistance, 0);
+                        if (IsResizeUnavailable)
+                        {
+                            return;
+                        }
+
+                        Panel2.Location = new Point(0, 0);
+                    }
+
+                    if (IsResizeUnavailable)
+                    {
+                        return;
+                    }
+
+                    UpdateSplitterRect(vertical: true);
+                    if (!_resizeCalled)
+                    {
+                        _ratioWidth = (Width / (double)(Panel1.Width) > 0) ? Width / (double)(Panel1.Width) : _ratioWidth;
+                    }
                 }
                 else
                 {
-                    Panel1.Location = new Point(Width - _splitterDistance, 0);
-                    Panel2.Location = new Point(0, 0);
-                }
+                    if (Panel1Collapsed)
+                    {
+                        Panel2.Size = Size;
+                        if (IsResizeUnavailable)
+                        {
+                            return;
+                        }
 
-                UpdateSplitterRect(vertical: true);
-                if (!_resizeCalled)
-                {
-                    _ratioWidth = (Width / (double)(Panel1.Width) > 0) ? Width / (double)(Panel1.Width) : _ratioWidth;
+                        Panel2.Location = new Point(0, 0);
+                    }
+                    else if (Panel2Collapsed)
+                    {
+                        Panel1.Size = Size;
+                        if (IsResizeUnavailable)
+                        {
+                            return;
+                        }
+
+                        Panel1.Location = new Point(0, 0);
+                    }
+
+                    if (IsResizeUnavailable)
+                    {
+                        return;
+                    }
+
+                    // Update Ratio when the splitContainer is in CollapsedMode.
+                    if (!_resizeCalled)
+                    {
+                        _ratioWidth = (Width / (double)(_splitterDistance) > 0) ? Width / (double)(_splitterDistance) : _ratioWidth;
+                    }
                 }
             }
             else
             {
-                if (Panel1Collapsed)
+                // NO PANEL FIXED !!
+                if (!CollapsedMode)
                 {
-                    Panel2.Size = Size;
-                    Panel2.Location = new Point(0, 0);
-                }
-                else if (Panel2Collapsed)
-                {
-                    Panel1.Size = Size;
                     Panel1.Location = new Point(0, 0);
-                }
+                    if (IsResizeUnavailable)
+                    {
+                        return;
+                    }
 
-                // Update Ratio when the splitContainer is in CollapsedMode.
-                if (!_resizeCalled)
+                    Panel1.WidthInternal = Width;
+                    if (IsResizeUnavailable)
+                    {
+                        return;
+                    }
+
+                    Panel1.HeightInternal = SplitterDistanceInternal; // Default splitter distance from left or top.
+                    if (IsResizeUnavailable)
+                    {
+                        return;
+                    }
+
+                    int panel2Start = _splitterDistance + SplitterWidthInternal;
+                    Panel2.Size = new Size(Width, Height - panel2Start);
+                    if (IsResizeUnavailable)
+                    {
+                        return;
+                    }
+
+                    Panel2.Location = new Point(0, panel2Start);
+                    if (IsResizeUnavailable)
+                    {
+                        return;
+                    }
+
+                    UpdateSplitterRect(vertical: false);
+
+                    if (!_resizeCalled)
+                    {
+                        _ratioHeight = (Height / (double)(Panel1.Height) > 0) ? Height / (double)(Panel1.Height) : _ratioHeight;
+                    }
+                }
+                else
                 {
-                    _ratioWidth = (Width / (double)(_splitterDistance) > 0) ? Width / (double)(_splitterDistance) : _ratioWidth;
+                    if (Panel1Collapsed)
+                    {
+                        Panel2.Size = Size;
+                        if (IsResizeUnavailable)
+                        {
+                            return;
+                        }
+
+                        Panel2.Location = new Point(0, 0);
+                    }
+                    else if (Panel2Collapsed)
+                    {
+                        Panel1.Size = Size;
+                        if (IsResizeUnavailable)
+                        {
+                            return;
+                        }
+
+                        Panel1.Location = new Point(0, 0);
+                    }
+
+                    if (IsResizeUnavailable)
+                    {
+                        return;
+                    }
+
+                    // Update Ratio when the splitContainer is in CollapsedMode.
+                    if (!_resizeCalled)
+                    {
+                        _ratioHeight = (Height / (double)(_splitterDistance) > 0) ? Height / (double)(_splitterDistance) : _ratioHeight;
+                    }
                 }
             }
+
+            layoutCompleted = true;
         }
-        else
+        catch (Exception ex)
         {
-            // NO PANEL FIXED !!
-            if (!CollapsedMode)
+            resizeException = ExceptionDispatchInfo.Capture(ex);
+        }
+        finally
+        {
+            ResumePanelLayout(layoutCompleted, resizeException);
+        }
+    }
+
+    private void ResumePanelLayout(bool performLayout, ExceptionDispatchInfo? resizeException)
+    {
+        bool layoutPanel2 = false;
+        try
+        {
+            Panel1.ResumeLayout(performLayout: performLayout && !IsResizeUnavailable);
+            layoutPanel2 = performLayout && !IsResizeUnavailable;
+        }
+        catch (Exception ex)
+        {
+            if (resizeException is null)
             {
-                Panel1.Location = new Point(0, 0);
-                Panel1.WidthInternal = Width;
-
-                Panel1.HeightInternal = SplitterDistanceInternal; // Default splitter distance from left or top.
-                int panel2Start = _splitterDistance + SplitterWidthInternal;
-                Panel2.Size = new Size(Width, Height - panel2Start);
-                Panel2.Location = new Point(0, panel2Start);
-
-                UpdateSplitterRect(vertical: false);
-
-                if (!_resizeCalled)
-                {
-                    _ratioHeight = (Height / (double)(Panel1.Height) > 0) ? Height / (double)(Panel1.Height) : _ratioHeight;
-                }
+                resizeException = ExceptionDispatchInfo.Capture(ex);
             }
             else
             {
-                if (Panel1Collapsed)
-                {
-                    Panel2.Size = Size;
-                    Panel2.Location = new Point(0, 0);
-                }
-                else if (Panel2Collapsed)
-                {
-                    Panel1.Size = Size;
-                    Panel1.Location = new Point(0, 0);
-                }
-
-                // Update Ratio when the splitContainer is in CollapsedMode.
-                if (!_resizeCalled)
-                {
-                    _ratioHeight = (Height / (double)(_splitterDistance) > 0) ? Height / (double)(_splitterDistance) : _ratioHeight;
-                }
+                resizeException.SourceException.Data["SplitContainer.Panel1LayoutCleanupException"] = ex;
             }
         }
 
-        Panel1.ResumeLayout();
-        Panel2.ResumeLayout();
+        try
+        {
+            Panel2.ResumeLayout(layoutPanel2);
+        }
+        catch (Exception ex) when (resizeException is not null)
+        {
+            resizeException.SourceException.Data["SplitContainer.Panel2LayoutCleanupException"] = ex;
+        }
+
+        resizeException?.Throw();
     }
 
     /// <summary>
@@ -2598,9 +3202,9 @@ public partial class SplitContainer : ContainerControl, ISupportInitialize
     protected override void OnMouseCaptureChanged(EventArgs e)
     {
         base.OnMouseCaptureChanged(e);
-        if (_splitContainerMessageFilter is not null)
+        if (!IsResizeUnavailable && _splitContainerMessageFilter is not null)
         {
-            if (!Capture && _splitterClick && _useLiveSplitterResize)
+            if (!Capture && _splitterClick && _isLiveResizeGesture)
             {
                 SplitEnd(false);
             }

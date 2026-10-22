@@ -597,11 +597,13 @@ public class SplitContainerTests
 
     [WinFormsTheory]
     [InlineData(VisualStylesMode.Net11, VisualStylesMode.Classic, true)]
+    [InlineData(VisualStylesMode.Latest, VisualStylesMode.Disabled, true)]
     [InlineData(VisualStylesMode.Classic, VisualStylesMode.Net11, false)]
-    public void SplitContainer_MouseMove_VisualStylesModeChangeUsesModeFromMouseDown(
+    [InlineData(VisualStylesMode.Disabled, VisualStylesMode.Latest, false)]
+    public void SplitContainer_MouseMove_ModeChangeCancelsLiveGestureAndPreservesDeferredGesture(
         VisualStylesMode initialMode,
         VisualStylesMode changedMode,
-        bool expectedLiveResize)
+        bool initiallyLive)
     {
         using SubSplitContainer control = new()
         {
@@ -613,17 +615,34 @@ public class SplitContainerTests
         int splitterX = splitterRectangle.Left + (splitterRectangle.Width / 2);
         int splitterY = splitterRectangle.Top + (splitterRectangle.Height / 2);
         int initialSplitterDistance = control.SplitterDistance;
+        Rectangle initialPanel1Bounds = control.Panel1.Bounds;
+        Rectangle initialPanel2Bounds = control.Panel2.Bounds;
+        int initialLastDrawSplit = control.TestAccessor.Dynamic._lastDrawSplit;
+        int movedCallCount = 0;
+        control.SplitterMoved += (_, _) => movedCallCount++;
 
         control.OnMouseDown(new MouseEventArgs(MouseButtons.Left, 1, splitterX, splitterY, 0));
-        control.VisualStylesMode = changedMode;
         control.OnMouseMove(new MouseEventArgs(MouseButtons.Left, 0, splitterX + 10, splitterY, 0));
-
         Assert.Equal(
-            expectedLiveResize ? initialSplitterDistance + 10 : initialSplitterDistance,
+            initiallyLive ? initialSplitterDistance + 10 : initialSplitterDistance,
             control.SplitterDistance);
+        control.VisualStylesMode = changedMode;
 
-        control.OnMouseUp(new MouseEventArgs(MouseButtons.Left, 1, splitterX + 10, splitterY, 0));
-        Assert.Equal(initialSplitterDistance + 10, control.SplitterDistance);
+        Assert.Equal(initialSplitterDistance, control.SplitterDistance);
+        Assert.Equal(initialPanel1Bounds, control.Panel1.Bounds);
+        Assert.Equal(initialPanel2Bounds, control.Panel2.Bounds);
+        Assert.Equal(!initiallyLive, control.Capture);
+        if (initiallyLive)
+        {
+            Assert.Equal(initialLastDrawSplit, (int)control.TestAccessor.Dynamic._lastDrawSplit);
+        }
+
+        control.OnMouseMove(new MouseEventArgs(MouseButtons.Left, 0, splitterX + 20, splitterY, 0));
+        Assert.Equal(initialSplitterDistance, control.SplitterDistance);
+        control.OnMouseUp(new MouseEventArgs(MouseButtons.Left, 1, splitterX + 20, splitterY, 0));
+        Assert.Equal(initiallyLive ? initialSplitterDistance : initialSplitterDistance + 20, control.SplitterDistance);
+        Assert.Equal(initiallyLive ? 0 : 1, movedCallCount);
+        Assert.False(control.Capture);
     }
 
     [WinFormsTheory]
@@ -998,8 +1017,10 @@ public class SplitContainerTests
 
     [WinFormsTheory]
     [InlineData(VisualStylesMode.Net11, VisualStylesMode.Classic, true)]
+    [InlineData(VisualStylesMode.Latest, VisualStylesMode.Disabled, true)]
     [InlineData(VisualStylesMode.Classic, VisualStylesMode.Net11, false)]
-    public void SplitContainer_KeyMove_ModeChangeAppliesToNextInteraction(
+    [InlineData(VisualStylesMode.Disabled, VisualStylesMode.Latest, false)]
+    public void SplitContainer_KeyMove_ModeChangeCancelsLiveGestureAndNextInteractionUsesNewMode(
         VisualStylesMode initialMode,
         VisualStylesMode changedMode,
         bool initiallyLive)
@@ -1011,22 +1032,34 @@ public class SplitContainerTests
         };
         control.TestAccessor.Dynamic._splitterFocused = true;
         int initialDistance = control.SplitterDistance;
+        Rectangle initialPanel1Bounds = control.Panel1.Bounds;
+        Rectangle initialPanel2Bounds = control.Panel2.Bounds;
         int movedCallCount = 0;
         control.SplitterMoved += (_, _) => movedCallCount++;
 
         control.OnKeyDown(new KeyEventArgs(Keys.Right));
+        Assert.Equal(initiallyLive ? initialDistance + 1 : initialDistance, control.SplitterDistance);
         control.VisualStylesMode = changedMode;
-        control.OnKeyDown(new KeyEventArgs(Keys.Right));
-        Assert.Equal(initiallyLive ? initialDistance + 2 : initialDistance, control.SplitterDistance);
+        Assert.Equal(initialDistance, control.SplitterDistance);
+        Assert.Equal(initialPanel1Bounds, control.Panel1.Bounds);
+        Assert.Equal(initialPanel2Bounds, control.Panel2.Bounds);
+        if (!initiallyLive)
+        {
+            control.OnKeyDown(new KeyEventArgs(Keys.Right));
+            Assert.Equal(initialDistance, control.SplitterDistance);
+        }
+
         control.OnKeyUp(new KeyEventArgs(Keys.Right));
-        Assert.Equal(initialDistance + 2, control.SplitterDistance);
-        Assert.Equal(1, movedCallCount);
+        Assert.Equal(initiallyLive ? initialDistance : initialDistance + 2, control.SplitterDistance);
+        Assert.Equal(initiallyLive ? 0 : 1, movedCallCount);
+        Assert.False(control.TestAccessor.Dynamic._splitBegin);
+        Assert.False(control.TestAccessor.Dynamic._splitMove);
 
         control.OnKeyDown(new KeyEventArgs(Keys.Right));
-        Assert.Equal(initiallyLive ? initialDistance + 2 : initialDistance + 3, control.SplitterDistance);
+        Assert.Equal(initiallyLive ? initialDistance : initialDistance + 3, control.SplitterDistance);
         control.OnKeyUp(new KeyEventArgs(Keys.Right));
-        Assert.Equal(initialDistance + 3, control.SplitterDistance);
-        Assert.Equal(2, movedCallCount);
+        Assert.Equal(initiallyLive ? initialDistance + 1 : initialDistance + 3, control.SplitterDistance);
+        Assert.Equal(initiallyLive ? 1 : 2, movedCallCount);
     }
 
     [WinFormsTheory]
@@ -1355,14 +1388,18 @@ public class SplitContainerTests
         control.OnKeyUp(new KeyEventArgs(Keys.Right));
 
         Assert.Equal(cancel ? initialDistance : 70, control.SplitterDistance);
-        Assert.Equal(cancel ? new[] { 70, initialDistance } : new[] { 70 }, notifiedDistances);
+        int[] expectedDistances = cancel ? [70, initialDistance] : [70];
+        Assert.Equal(expectedDistances, notifiedDistances);
         Assert.Equal(control.SplitterDistance, control.Panel1.Width);
         Assert.False(control.TestAccessor.Dynamic._splitBegin);
         Assert.False(control.TestAccessor.Dynamic._splitMove);
     }
 
-    [WinFormsFact]
-    public void SplitContainer_MouseMove_ReentrantNotificationFollowedByLiveMovementNotifiesFinalDistance()
+    [WinFormsTheory]
+    [InlineData(0)]
+    [InlineData(30)]
+    public void SplitContainer_MouseMove_ReentrantNotificationFollowedByLiveMovementNotifiesFinalDistance(
+        int finalOffset)
     {
         using SubSplitContainer control = new()
         {
@@ -1385,13 +1422,57 @@ public class SplitContainerTests
         control.OnMouseDown(new MouseEventArgs(MouseButtons.Left, 1, anchor.X, anchor.Y, 0));
         control.OnMouseMove(new MouseEventArgs(MouseButtons.Left, 0, anchor.X + 10, anchor.Y, 0));
         Assert.Equal([70], notifiedDistances);
-        control.OnMouseMove(new MouseEventArgs(MouseButtons.Left, 0, anchor.X + 20, anchor.Y, 0));
-        Assert.Equal(initialDistance + 20, control.SplitterDistance);
+        control.OnMouseMove(new MouseEventArgs(MouseButtons.Left, 0, anchor.X + finalOffset, anchor.Y, 0));
+        Assert.Equal(initialDistance + finalOffset, control.SplitterDistance);
         Assert.Equal([70], notifiedDistances);
-        control.OnMouseUp(new MouseEventArgs(MouseButtons.Left, 1, anchor.X + 20, anchor.Y, 0));
+        control.OnMouseUp(new MouseEventArgs(MouseButtons.Left, 1, anchor.X + finalOffset, anchor.Y, 0));
 
-        Assert.Equal([70, initialDistance + 20], notifiedDistances);
-        Assert.Equal(initialDistance + 20, control.Panel1.Width);
+        Assert.Equal([70, initialDistance + finalOffset], notifiedDistances);
+        Assert.Equal(initialDistance + finalOffset, control.Panel1.Width);
+        Assert.False(control.Capture);
+    }
+
+    [WinFormsTheory]
+    [InlineData(Orientation.Horizontal)]
+    [InlineData(Orientation.Vertical)]
+    public void SplitContainer_KeyMove_ReentrantNotificationFollowedByReturnToInitialDistanceNotifiesFinalDistance(
+        Orientation orientation)
+    {
+        using SubSplitContainer control = new()
+        {
+            Orientation = orientation,
+            Size = new Size(300, 300),
+            VisualStylesMode = VisualStylesMode.Net11,
+            SplitterIncrement = 20
+        };
+        control.TestAccessor.Dynamic._splitterFocused = true;
+        int initialDistance = control.SplitterDistance;
+        int movingCallCount = 0;
+        List<int> notifiedDistances = [];
+        control.SplitterMoved += (_, _) => notifiedDistances.Add(control.SplitterDistance);
+        control.SplitterMoving += (_, _) =>
+        {
+            if (++movingCallCount == 1)
+            {
+                control.SplitterDistance = initialDistance + control.SplitterIncrement;
+            }
+        };
+        Keys increase = orientation == Orientation.Vertical ? Keys.Right : Keys.Down;
+        Keys decrease = orientation == Orientation.Vertical ? Keys.Left : Keys.Up;
+
+        control.OnKeyDown(new KeyEventArgs(increase));
+        Assert.Equal(initialDistance + control.SplitterIncrement, control.SplitterDistance);
+        Assert.Equal([initialDistance + control.SplitterIncrement], notifiedDistances);
+        control.OnKeyDown(new KeyEventArgs(decrease));
+        Assert.Equal(initialDistance, control.SplitterDistance);
+        Assert.Equal([initialDistance + control.SplitterIncrement], notifiedDistances);
+        control.OnKeyUp(new KeyEventArgs(decrease));
+
+        Assert.Equal([initialDistance + control.SplitterIncrement, initialDistance], notifiedDistances);
+        Assert.Equal(
+            initialDistance,
+            orientation == Orientation.Vertical ? control.Panel1.Width : control.Panel1.Height);
+        Assert.False(control.TestAccessor.Dynamic._splitBegin);
         Assert.False(control.Capture);
     }
 
@@ -1655,7 +1736,7 @@ public class SplitContainerTests
     [InlineData(Orientation.Vertical, 0x0100)]
     [InlineData(Orientation.Horizontal, 0x0104)]
     [InlineData(Orientation.Vertical, 0x0104)]
-    public void SplitContainer_ClassicMouseMove_CancellationDiscardsPendingLayoutAndClearsReversibleBar(
+    public void SplitContainer_ClassicMouseMove_CancellationPreservesLegacyCaptureAndClearsReversibleBar(
         Orientation orientation,
         int cancelMessageId)
     {
@@ -1703,7 +1784,7 @@ public class SplitContainerTests
         Assert.Equal(initialPanel1Bounds, control.Panel1.Bounds);
         Assert.Equal(initialPanel2Bounds, control.Panel2.Bounds);
         Assert.Equal(0, movedCallCount);
-        Assert.False(control.Capture);
+        Assert.True(control.Capture);
         Assert.Equal(-1, (int)control.TestAccessor.Dynamic._lastDrawSplit);
         Assert.Null((object?)control.TestAccessor.Dynamic._splitContainerMessageFilter);
 
@@ -1712,6 +1793,10 @@ public class SplitContainerTests
         Assert.Equal(initialDistance, control.SplitterDistance);
         Assert.Equal(0, movedCallCount);
         Assert.Equal(-1, (int)control.TestAccessor.Dynamic._lastDrawSplit);
+        Assert.True(control.Capture);
+
+        // Legacy cancellation leaves capture unchanged until it is released externally.
+        control.Capture = false;
 
         position = GetDragPosition(control, anchor, 10);
         control.OnMouseDown(new MouseEventArgs(MouseButtons.Left, 1, anchor.X, anchor.Y, 0));
@@ -1766,6 +1851,622 @@ public class SplitContainerTests
             orientation == Orientation.Vertical ? control.Panel1.Width : control.Panel1.Height);
         Assert.Equal(1, movedCallCount);
         Assert.False(control.Capture);
+        Assert.Equal(-1, (int)control.TestAccessor.Dynamic._lastDrawSplit);
+    }
+
+    [WinFormsTheory]
+    [InlineData(Orientation.Horizontal, false, VisualStylesMode.Classic)]
+    [InlineData(Orientation.Vertical, false, VisualStylesMode.Classic)]
+    [InlineData(Orientation.Horizontal, true, VisualStylesMode.Disabled)]
+    [InlineData(Orientation.Vertical, true, VisualStylesMode.Disabled)]
+    public void SplitContainer_Resize_InheritedEligibilityLossRollsBackAndAllowsNewLiveGesture(
+        Orientation orientation,
+        bool keyboard,
+        VisualStylesMode disabledMode)
+    {
+        using Panel parent = new() { VisualStylesMode = VisualStylesMode.Net11 };
+        using SubSplitContainer control = new()
+        {
+            Orientation = orientation,
+            Size = new Size(300, 300),
+            SplitterIncrement = 10
+        };
+        parent.Controls.Add(control);
+        control.TestAccessor.Dynamic._splitterFocused = true;
+        int initialDistance = control.SplitterDistance;
+        Rectangle initialPanel1Bounds = control.Panel1.Bounds;
+        Rectangle initialPanel2Bounds = control.Panel2.Bounds;
+        int initialLastDrawSplit = control.TestAccessor.Dynamic._lastDrawSplit;
+        int movedCallCount = 0;
+        control.SplitterMoved += (_, _) => movedCallCount++;
+        Point anchor = GetSplitterCenter(control);
+        Point position = GetDragPosition(control, anchor, 10);
+        Keys key = orientation == Orientation.Vertical ? Keys.Right : Keys.Down;
+
+        BeginAndMove();
+        Assert.Equal(initialDistance + 10, control.SplitterDistance);
+
+        parent.VisualStylesMode = disabledMode;
+
+        Assert.Equal(initialDistance, control.SplitterDistance);
+        Assert.Equal(initialPanel1Bounds, control.Panel1.Bounds);
+        Assert.Equal(initialPanel2Bounds, control.Panel2.Bounds);
+        Assert.False(control.Capture);
+        Assert.False(control.TestAccessor.Dynamic._splitBegin);
+        Assert.False(control.TestAccessor.Dynamic._splitMove);
+        Assert.Equal(initialLastDrawSplit, (int)control.TestAccessor.Dynamic._lastDrawSplit);
+        Assert.Equal(0, movedCallCount);
+
+        EndGesture();
+        Assert.Equal(initialDistance, control.SplitterDistance);
+        Assert.Equal(initialLastDrawSplit, (int)control.TestAccessor.Dynamic._lastDrawSplit);
+        Assert.Equal(0, movedCallCount);
+
+        parent.VisualStylesMode = VisualStylesMode.Net11;
+        BeginAndMove();
+        Assert.Equal(initialDistance + 10, control.SplitterDistance);
+        EndGesture();
+        Assert.Equal(initialDistance + 10, control.SplitterDistance);
+        Assert.Equal(1, movedCallCount);
+
+        void BeginAndMove()
+        {
+            if (keyboard)
+            {
+                control.OnKeyDown(new KeyEventArgs(key));
+            }
+            else
+            {
+                control.OnMouseDown(new MouseEventArgs(MouseButtons.Left, 1, anchor.X, anchor.Y, 0));
+                control.OnMouseMove(new MouseEventArgs(MouseButtons.Left, 0, position.X, position.Y, 0));
+            }
+        }
+
+        void EndGesture()
+        {
+            if (keyboard)
+            {
+                control.OnKeyUp(new KeyEventArgs(key));
+            }
+            else
+            {
+                control.OnMouseMove(new MouseEventArgs(MouseButtons.None, 0, position.X, position.Y, 0));
+                control.OnMouseUp(new MouseEventArgs(MouseButtons.Left, 1, position.X, position.Y, 0));
+            }
+        }
+    }
+
+    [WinFormsTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SplitContainer_Resize_HighContrastCancelsLiveGestureAndSubsequentGestureIsDeferred(bool keyboard)
+    {
+        using HighContrastSplitContainer control = new()
+        {
+            Size = new Size(300, 100),
+            VisualStylesMode = VisualStylesMode.Net11,
+            SplitterIncrement = 10
+        };
+        control.TestAccessor.Dynamic._splitterFocused = true;
+        int initialDistance = control.SplitterDistance;
+        Rectangle initialPanel1Bounds = control.Panel1.Bounds;
+        Rectangle initialPanel2Bounds = control.Panel2.Bounds;
+        int initialLastDrawSplit = control.TestAccessor.Dynamic._lastDrawSplit;
+        int movedCallCount = 0;
+        control.SplitterMoved += (_, _) => movedCallCount++;
+        Point anchor = GetSplitterCenter(control);
+
+        if (keyboard)
+        {
+            control.OnKeyDown(new KeyEventArgs(Keys.Right));
+        }
+        else
+        {
+            control.OnMouseDown(new MouseEventArgs(MouseButtons.Left, 1, anchor.X, anchor.Y, 0));
+            control.OnMouseMove(new MouseEventArgs(MouseButtons.Left, 0, anchor.X + 10, anchor.Y, 0));
+        }
+
+        Assert.Equal(initialDistance + 10, control.SplitterDistance);
+        control.SetHighContrast(true);
+
+        Assert.Equal(VisualStylesMode.Net11, control.VisualStylesMode);
+        Assert.Equal(initialDistance, control.SplitterDistance);
+        Assert.Equal(initialPanel1Bounds, control.Panel1.Bounds);
+        Assert.Equal(initialPanel2Bounds, control.Panel2.Bounds);
+        Assert.False(control.Capture);
+        Assert.Equal(initialLastDrawSplit, (int)control.TestAccessor.Dynamic._lastDrawSplit);
+        Assert.Equal(0, movedCallCount);
+
+        if (keyboard)
+        {
+            control.OnKeyUp(new KeyEventArgs(Keys.Right));
+            Assert.Equal(0, movedCallCount);
+            control.OnKeyDown(new KeyEventArgs(Keys.Right));
+        }
+        else
+        {
+            control.OnMouseUp(new MouseEventArgs(MouseButtons.Left, 1, anchor.X + 10, anchor.Y, 0));
+            Assert.Equal(0, movedCallCount);
+            control.OnMouseDown(new MouseEventArgs(MouseButtons.Left, 1, anchor.X, anchor.Y, 0));
+            control.OnMouseMove(new MouseEventArgs(MouseButtons.Left, 0, anchor.X + 10, anchor.Y, 0));
+        }
+
+        Assert.Equal(initialDistance, control.SplitterDistance);
+        Assert.Equal(initialPanel1Bounds, control.Panel1.Bounds);
+        Assert.Equal(initialPanel2Bounds, control.Panel2.Bounds);
+        Assert.Equal(initialDistance + 10, (int)control.TestAccessor.Dynamic._lastDrawSplit);
+
+        if (keyboard)
+        {
+            control.OnKeyUp(new KeyEventArgs(Keys.Right));
+        }
+        else
+        {
+            control.OnMouseUp(new MouseEventArgs(MouseButtons.Left, 1, anchor.X + 10, anchor.Y, 0));
+        }
+
+        Assert.Equal(initialDistance + 10, control.SplitterDistance);
+        Assert.Equal(1, movedCallCount);
+        Assert.Equal(-1, (int)control.TestAccessor.Dynamic._lastDrawSplit);
+    }
+
+    [WinFormsTheory]
+    [InlineData(false, VisualStylesMode.Classic)]
+    [InlineData(true, VisualStylesMode.Disabled)]
+    public void SplitContainer_Resize_EligibilityLostDuringMovingCancelsWithoutLegacyFallthrough(
+        bool keyboard,
+        VisualStylesMode disabledMode)
+    {
+        using SubSplitContainer control = new()
+        {
+            Size = new Size(300, 100),
+            VisualStylesMode = VisualStylesMode.Net11,
+            SplitterIncrement = 10
+        };
+        control.TestAccessor.Dynamic._splitterFocused = true;
+        int initialDistance = control.SplitterDistance;
+        Rectangle initialPanel1Bounds = control.Panel1.Bounds;
+        Rectangle initialPanel2Bounds = control.Panel2.Bounds;
+        int initialLastDrawSplit = control.TestAccessor.Dynamic._lastDrawSplit;
+        int movedCallCount = 0;
+        control.SplitterMoved += (_, _) => movedCallCount++;
+        Point anchor = GetSplitterCenter(control);
+        if (keyboard)
+        {
+            control.OnKeyDown(new KeyEventArgs(Keys.Right));
+        }
+        else
+        {
+            control.OnMouseDown(new MouseEventArgs(MouseButtons.Left, 1, anchor.X, anchor.Y, 0));
+            control.OnMouseMove(new MouseEventArgs(MouseButtons.Left, 0, anchor.X + 10, anchor.Y, 0));
+        }
+
+        Assert.Equal(initialDistance + 10, control.SplitterDistance);
+        control.SplitterMoving += (_, e) =>
+        {
+            control.VisualStylesMode = disabledMode;
+            e.Cancel = true;
+        };
+
+        if (keyboard)
+        {
+            control.OnKeyDown(new KeyEventArgs(Keys.Right));
+            control.OnKeyUp(new KeyEventArgs(Keys.Right));
+        }
+        else
+        {
+            control.OnMouseMove(new MouseEventArgs(MouseButtons.Left, 0, anchor.X + 20, anchor.Y, 0));
+            control.OnMouseUp(new MouseEventArgs(MouseButtons.Left, 1, anchor.X + 20, anchor.Y, 0));
+        }
+
+        Assert.Equal(initialDistance, control.SplitterDistance);
+        Assert.Equal(initialPanel1Bounds, control.Panel1.Bounds);
+        Assert.Equal(initialPanel2Bounds, control.Panel2.Bounds);
+        Assert.Equal(initialLastDrawSplit, (int)control.TestAccessor.Dynamic._lastDrawSplit);
+        Assert.False(control.Capture);
+        Assert.Equal(0, movedCallCount);
+    }
+
+    [WinFormsTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SplitContainer_Resize_EligibilityLostDuringCompletionRollsBackEvenIfReenabled(bool keyboard)
+    {
+        using SubSplitContainer control = new()
+        {
+            Size = new Size(300, 100),
+            VisualStylesMode = VisualStylesMode.Net11,
+            SplitterIncrement = 10
+        };
+        control.TestAccessor.Dynamic._splitterFocused = true;
+        int initialDistance = control.SplitterDistance;
+        Rectangle initialPanel1Bounds = control.Panel1.Bounds;
+        Rectangle initialPanel2Bounds = control.Panel2.Bounds;
+        int initialLastDrawSplit = control.TestAccessor.Dynamic._lastDrawSplit;
+        List<int> notifiedDistances = [];
+        control.SplitterMoved += (_, _) =>
+        {
+            notifiedDistances.Add(control.SplitterDistance);
+            if (notifiedDistances.Count == 1)
+            {
+                control.VisualStylesMode = VisualStylesMode.Classic;
+                control.VisualStylesMode = VisualStylesMode.Net11;
+            }
+        };
+
+        if (keyboard)
+        {
+            control.OnKeyDown(new KeyEventArgs(Keys.Right));
+            control.OnKeyUp(new KeyEventArgs(Keys.Right));
+        }
+        else
+        {
+            Point anchor = GetSplitterCenter(control);
+            control.OnMouseDown(new MouseEventArgs(MouseButtons.Left, 1, anchor.X, anchor.Y, 0));
+            control.OnMouseMove(new MouseEventArgs(MouseButtons.Left, 0, anchor.X + 10, anchor.Y, 0));
+            control.OnMouseUp(new MouseEventArgs(MouseButtons.Left, 1, anchor.X + 10, anchor.Y, 0));
+        }
+
+        Assert.Equal([initialDistance + 10, initialDistance], notifiedDistances);
+        Assert.Equal(initialDistance, control.SplitterDistance);
+        Assert.Equal(initialPanel1Bounds, control.Panel1.Bounds);
+        Assert.Equal(initialPanel2Bounds, control.Panel2.Bounds);
+        Assert.Equal(initialLastDrawSplit, (int)control.TestAccessor.Dynamic._lastDrawSplit);
+        Assert.False(control.Capture);
+        Assert.False(control.TestAccessor.Dynamic._splitBegin);
+        Assert.False(control.TestAccessor.Dynamic._splitMove);
+    }
+
+    [WinFormsTheory]
+    [InlineData(VisualStylesMode.Classic, 90)]
+    [InlineData(VisualStylesMode.Disabled, 90)]
+    [InlineData(VisualStylesMode.Net11, 70)]
+    public void SplitContainer_MouseMove_ReentrantDistanceUsesModeSpecificMovementOrigin(
+        VisualStylesMode visualStylesMode,
+        int expectedDistance)
+    {
+        using SubSplitContainer control = new()
+        {
+            Size = new Size(300, 100),
+            VisualStylesMode = visualStylesMode,
+            SplitterDistance = 50
+        };
+        int movingCallCount = 0;
+        List<int> notifiedDistances = [];
+        control.SplitterMoved += (_, _) => notifiedDistances.Add(control.SplitterDistance);
+        control.SplitterMoving += (_, _) =>
+        {
+            if (++movingCallCount == 1)
+            {
+                control.SplitterDistance = 70;
+            }
+        };
+        Point anchor = GetSplitterCenter(control);
+
+        control.OnMouseDown(new MouseEventArgs(MouseButtons.Left, 1, anchor.X, anchor.Y, 0));
+        control.OnMouseMove(new MouseEventArgs(MouseButtons.Left, 0, anchor.X + 10, anchor.Y, 0));
+        control.OnMouseMove(new MouseEventArgs(MouseButtons.Left, 0, anchor.X + 20, anchor.Y, 0));
+        Assert.Equal(70, control.SplitterDistance);
+        Assert.Equal([70], notifiedDistances);
+        control.OnMouseUp(new MouseEventArgs(MouseButtons.Left, 1, anchor.X + 20, anchor.Y, 0));
+
+        Assert.Equal(expectedDistance, control.SplitterDistance);
+        Assert.Equal(expectedDistance, control.Panel1.Width);
+        int[] expectedDistances = visualStylesMode == VisualStylesMode.Net11 ? [70] : [70, expectedDistance];
+        Assert.Equal(expectedDistances, notifiedDistances);
+        Assert.False(control.Capture);
+    }
+
+    [WinFormsTheory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void SplitContainer_Resize_CancellationExceptionCleansUpGestureAndPropagatesException(
+        bool keyboard,
+        bool notificationThrows)
+    {
+        using SubSplitContainer control = new()
+        {
+            Size = new Size(300, 100),
+            VisualStylesMode = VisualStylesMode.Net11,
+            SplitterDistance = 50,
+            SplitterIncrement = 10
+        };
+        control.TestAccessor.Dynamic._splitterFocused = true;
+        int initialDistance = control.SplitterDistance;
+        int initialLastDrawSplit = control.TestAccessor.Dynamic._lastDrawSplit;
+        Rectangle initialPanel1Bounds = control.Panel1.Bounds;
+        Rectangle initialPanel2Bounds = control.Panel2.Bounds;
+        Point anchor = GetSplitterCenter(control);
+        Point position = GetDragPosition(control, anchor, 10);
+        InvalidOperationException expectedException = new("Live cancellation failed.");
+        int throwingCallCount = 0;
+        int movedCallCount = 0;
+        control.SplitterMoved += (_, _) => movedCallCount++;
+
+        BeginAndMove();
+        Assert.Equal(initialDistance + 10, control.SplitterDistance);
+        if (notificationThrows)
+        {
+            control.SplitterDistance = initialDistance + 20;
+        }
+
+        Assert.Equal(notificationThrows ? 1 : 0, movedCallCount);
+
+        LayoutEventHandler layoutHandler = (_, _) =>
+        {
+            throwingCallCount++;
+            throw expectedException;
+        };
+        bool? captureReleasedDuringLiveCleanup = null;
+        control.MouseCaptureChanged += (_, _) =>
+        {
+            if (!control.Capture)
+            {
+                captureReleasedDuringLiveCleanup = control.TestAccessor.Dynamic._isLiveResizeGesture
+                    && control.TestAccessor.Dynamic._endingLiveResize;
+            }
+        };
+        SplitterEventHandler movedHandler = (_, _) =>
+        {
+            Assert.Equal(initialDistance, control.SplitterDistance);
+            throwingCallCount++;
+            throw expectedException;
+        };
+
+        if (notificationThrows)
+        {
+            control.SplitterMoved += movedHandler;
+        }
+        else
+        {
+            control.Panel2.Layout += layoutHandler;
+        }
+
+        try
+        {
+            InvalidOperationException actualException = Assert.Throws<InvalidOperationException>(
+                () => control.VisualStylesMode = VisualStylesMode.Classic);
+
+            Assert.Same(expectedException, actualException);
+        }
+        finally
+        {
+            control.Panel2.Layout -= layoutHandler;
+            control.SplitterMoved -= movedHandler;
+        }
+
+        Assert.Equal(1, throwingCallCount);
+        Assert.Equal(notificationThrows ? 2 : 0, movedCallCount);
+        Assert.False(control.Capture);
+        if (!keyboard)
+        {
+            Assert.True(captureReleasedDuringLiveCleanup);
+        }
+
+        Assert.False(control.TestAccessor.Dynamic._splitterClick);
+        Assert.False(control.TestAccessor.Dynamic._splitterDrag);
+        Assert.False(control.TestAccessor.Dynamic._splitBegin);
+        Assert.False(control.TestAccessor.Dynamic._splitMove);
+        Assert.False(control.TestAccessor.Dynamic._splitBreak);
+        Assert.False(control.TestAccessor.Dynamic._isLiveResizeGesture);
+        Assert.False(control.TestAccessor.Dynamic._endingLiveResize);
+        Assert.False(control.TestAccessor.Dynamic._liveResizeCancelPending);
+        Assert.Null(control.TestAccessor.Dynamic._splitContainerMessageFilter);
+        Assert.Null(control.TestAccessor.Dynamic._lastNotifiedSplitterDistance);
+        Assert.Equal(Point.Empty, (Point)control.TestAccessor.Dynamic._anchor);
+        Assert.False(control.IsUpdating());
+        Assert.False(control.TestAccessor.Dynamic._setSplitterDistance);
+        if (notificationThrows)
+        {
+            Assert.Equal(initialDistance, control.SplitterDistance);
+            Assert.Equal(initialPanel1Bounds, control.Panel1.Bounds);
+            Assert.Equal(initialPanel2Bounds, control.Panel2.Bounds);
+        }
+
+        int distanceAfterCancellation = control.SplitterDistance;
+        int notificationsAfterCancellation = movedCallCount;
+        if (keyboard)
+        {
+            control.OnKeyUp(new KeyEventArgs(Keys.Right));
+        }
+        else
+        {
+            control.OnMouseMove(new MouseEventArgs(MouseButtons.Left, 0, position.X + 10, position.Y, 0));
+            control.OnMouseUp(new MouseEventArgs(MouseButtons.Left, 1, position.X, position.Y, 0));
+        }
+
+        Assert.Equal(distanceAfterCancellation, control.SplitterDistance);
+        Assert.Equal(notificationsAfterCancellation, movedCallCount);
+        Assert.Equal(initialLastDrawSplit, (int)control.TestAccessor.Dynamic._lastDrawSplit);
+
+        control.VisualStylesMode = VisualStylesMode.Net11;
+        control.SplitterDistance = initialDistance;
+        notificationsAfterCancellation = movedCallCount;
+        BeginAndMove();
+        Assert.Equal(initialDistance + 10, control.SplitterDistance);
+        if (keyboard)
+        {
+            control.OnKeyUp(new KeyEventArgs(Keys.Right));
+        }
+        else
+        {
+            control.OnMouseUp(new MouseEventArgs(MouseButtons.Left, 1, position.X, position.Y, 0));
+        }
+
+        Assert.Equal(initialDistance + 10, control.SplitterDistance);
+        Assert.Equal(notificationsAfterCancellation + 1, movedCallCount);
+        Assert.False(control.Capture);
+        Assert.Equal(initialLastDrawSplit, (int)control.TestAccessor.Dynamic._lastDrawSplit);
+
+        void BeginAndMove()
+        {
+            if (keyboard)
+            {
+                control.OnKeyDown(new KeyEventArgs(Keys.Right));
+            }
+            else
+            {
+                control.OnMouseDown(new MouseEventArgs(MouseButtons.Left, 1, anchor.X, anchor.Y, 0));
+                control.OnMouseMove(new MouseEventArgs(MouseButtons.Left, 0, position.X, position.Y, 0));
+                Assert.True(control.Capture);
+            }
+        }
+    }
+
+    [WinFormsTheory]
+    [InlineData(VisualStylesMode.Net11)]
+    [InlineData(VisualStylesMode.Classic)]
+    [InlineData(VisualStylesMode.Disabled)]
+    public void SplitContainer_Dispose_DuringMouseResizeClearsGestureWithoutRollback(
+        VisualStylesMode visualStylesMode)
+    {
+        using SubSplitContainer control = new()
+        {
+            Size = new Size(300, 100),
+            VisualStylesMode = visualStylesMode,
+            SplitterDistance = 50
+        };
+        Point anchor = GetSplitterCenter(control);
+        control.OnMouseDown(new MouseEventArgs(MouseButtons.Left, 1, anchor.X, anchor.Y, 0));
+        control.OnMouseMove(new MouseEventArgs(MouseButtons.Left, 0, anchor.X + 10, anchor.Y, 0));
+        Assert.True(control.Capture);
+        Assert.True(control.TestAccessor.Dynamic._splitterDrag);
+        Assert.NotNull((object?)control.TestAccessor.Dynamic._splitContainerMessageFilter);
+        int distanceBeforeDisposal = control.SplitterDistance;
+        int movedCallCount = 0;
+        int handleCreatedCallCount = 0;
+        control.SplitterMoved += (_, _) => movedCallCount++;
+        control.HandleCreated += (_, _) => handleCreatedCallCount++;
+        Message message = Message.Create(control.Handle, 0x0101, (nint)Keys.A, 0);
+        Assert.True(Application.FilterMessage(ref message));
+
+        control.Dispose();
+
+        AssertDisposedResizeStopped(control);
+        Assert.Equal(distanceBeforeDisposal, control.SplitterDistance);
+        Assert.Equal(0, movedCallCount);
+        Assert.False(Application.FilterMessage(ref message));
+
+        control.OnMouseMove(new MouseEventArgs(MouseButtons.Left, 0, anchor.X + 20, anchor.Y, 0));
+        control.OnMouseUp(new MouseEventArgs(MouseButtons.Left, 1, anchor.X + 20, anchor.Y, 0));
+
+        AssertDisposedResizeStopped(control);
+        Assert.Equal(distanceBeforeDisposal, control.SplitterDistance);
+        Assert.Equal(0, movedCallCount);
+        Assert.Equal(0, handleCreatedCallCount);
+    }
+
+    [WinFormsTheory]
+    [InlineData(VisualStylesMode.Net11)]
+    [InlineData(VisualStylesMode.Classic)]
+    [InlineData(VisualStylesMode.Disabled)]
+    public void SplitContainer_MouseMove_DisposedInSplitterMovingStopsResize(
+        VisualStylesMode visualStylesMode)
+    {
+        using SubSplitContainer control = new()
+        {
+            Size = new Size(300, 100),
+            VisualStylesMode = visualStylesMode,
+            SplitterDistance = 50
+        };
+        int movingCallCount = 0;
+        int movedCallCount = 0;
+        int handleCreatedCallCount = 0;
+        control.SplitterMoving += (_, _) =>
+        {
+            movingCallCount++;
+            control.Dispose();
+        };
+        control.SplitterMoved += (_, _) => movedCallCount++;
+        Point anchor = GetSplitterCenter(control);
+        control.OnMouseDown(new MouseEventArgs(MouseButtons.Left, 1, anchor.X, anchor.Y, 0));
+        Assert.True(control.Capture);
+        control.HandleCreated += (_, _) => handleCreatedCallCount++;
+
+        control.OnMouseMove(new MouseEventArgs(MouseButtons.Left, 0, anchor.X + 10, anchor.Y, 0));
+
+        AssertDisposedResizeStopped(control);
+        Assert.Equal(50, control.SplitterDistance);
+        Assert.Equal(1, movingCallCount);
+        Assert.Equal(0, movedCallCount);
+
+        control.OnMouseMove(new MouseEventArgs(MouseButtons.Left, 0, anchor.X + 20, anchor.Y, 0));
+        control.OnMouseUp(new MouseEventArgs(MouseButtons.Left, 1, anchor.X + 20, anchor.Y, 0));
+
+        AssertDisposedResizeStopped(control);
+        Assert.Equal(1, movingCallCount);
+        Assert.Equal(0, movedCallCount);
+        Assert.Equal(0, handleCreatedCallCount);
+    }
+
+    [WinFormsTheory]
+    [InlineData(VisualStylesMode.Net11)]
+    [InlineData(VisualStylesMode.Classic)]
+    [InlineData(VisualStylesMode.Disabled)]
+    public void SplitContainer_KeyUp_DisposedInSplitterMovedDoesNotAccessGraphics(
+        VisualStylesMode visualStylesMode)
+    {
+        using SubSplitContainer control = new()
+        {
+            Size = new Size(300, 100),
+            VisualStylesMode = visualStylesMode,
+            SplitterDistance = 50,
+            SplitterIncrement = 10
+        };
+        Assert.NotEqual(IntPtr.Zero, control.Handle);
+        control.TestAccessor.Dynamic._splitterFocused = true;
+        int movedCallCount = 0;
+        int handleCreatedCallCount = 0;
+        control.HandleCreated += (_, _) => handleCreatedCallCount++;
+        control.SplitterMoved += (_, _) =>
+        {
+            movedCallCount++;
+            control.Dispose();
+        };
+        control.OnKeyDown(new KeyEventArgs(Keys.Right));
+        Assert.False(control.IsDisposed);
+        Assert.True(control.TestAccessor.Dynamic._splitBegin);
+        Assert.Equal(0, movedCallCount);
+
+        control.OnKeyUp(new KeyEventArgs(Keys.Right));
+
+        AssertDisposedResizeStopped(control);
+        Assert.Equal(60, control.SplitterDistance);
+        Assert.Equal(1, movedCallCount);
+        Assert.Equal(0, handleCreatedCallCount);
+
+        control.OnKeyDown(new KeyEventArgs(Keys.Right));
+        control.OnKeyUp(new KeyEventArgs(Keys.Right));
+
+        AssertDisposedResizeStopped(control);
+        Assert.Equal(60, control.SplitterDistance);
+        Assert.Equal(1, movedCallCount);
+        Assert.Equal(0, handleCreatedCallCount);
+    }
+
+    private static void AssertDisposedResizeStopped(SubSplitContainer control)
+    {
+        Assert.True(control.IsDisposed);
+        Assert.False(control.IsHandleCreated);
+        Assert.False(control.Capture);
+        Assert.False(control.IsUpdating());
+        Assert.False(control.TestAccessor.Dynamic._setSplitterDistance);
+        Assert.Equal((byte)0, control.LayoutSuspendCount);
+        Assert.Equal((byte)0, control.Panel1.LayoutSuspendCount);
+        Assert.Equal((byte)0, control.Panel2.LayoutSuspendCount);
+        Assert.False(control.TestAccessor.Dynamic._splitterClick);
+        Assert.False(control.TestAccessor.Dynamic._splitterDrag);
+        Assert.False(control.TestAccessor.Dynamic._splitBegin);
+        Assert.False(control.TestAccessor.Dynamic._splitMove);
+        Assert.False(control.TestAccessor.Dynamic._splitBreak);
+        Assert.False(control.TestAccessor.Dynamic._isLiveResizeGesture);
+        Assert.False(control.TestAccessor.Dynamic._endingLiveResize);
+        Assert.False(control.TestAccessor.Dynamic._liveResizeCancelPending);
+        Assert.Null((object?)control.TestAccessor.Dynamic._splitContainerMessageFilter);
+        Assert.Null((object?)control.TestAccessor.Dynamic._lastNotifiedSplitterDistance);
+        Assert.Equal(Point.Empty, (Point)control.TestAccessor.Dynamic._anchor);
         Assert.Equal(-1, (int)control.TestAccessor.Dynamic._lastDrawSplit);
     }
 
@@ -1833,6 +2534,22 @@ public class SplitContainerTests
         public new void OnMouseMove(MouseEventArgs e) => base.OnMouseMove(e);
 
         public new void OnMouseUp(MouseEventArgs e) => base.OnMouseUp(e);
+    }
+
+    /// <summary>
+    ///  Simulates effective visual-style changes without modifying system High Contrast settings.
+    /// </summary>
+    private class HighContrastSplitContainer : SubSplitContainer
+    {
+        private bool _highContrast;
+
+        internal override bool IsHighContrast => _highContrast;
+
+        public void SetHighContrast(bool value)
+        {
+            _highContrast = value;
+            OnVisualStylesModeChanged(EventArgs.Empty);
+        }
     }
 
     private class PaintTrackingControl : Control
