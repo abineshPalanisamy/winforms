@@ -3341,12 +3341,16 @@ public class ComboBoxTests
         Assert.True(control.IsHandleCreated);
     }
 
-    [WinFormsFact]
-    public void ComboBox_Resize_DropDownStyleWithUncommittedTypedText_PreservesText()
+    [WinFormsTheory]
+    [InlineData(-1, "bl", 2, 0, false)]
+    [InlineData(0, "bl", 1, 1, false)]
+    [InlineData(-1, "bl", 1, 1, true)]
+    [InlineData(0, "blah321", 2, 0, false)]
+    [InlineData(-1, "", 0, 0, false)]
+    [InlineData(-1, "unmatched", 2, 2, false)]
+    public void ComboBox_Resize_DropDownStyleWithUncommittedTypedText_PreservesText(
+        int selectedIndex, string text, int start, int length, bool changeTextOnResize)
     {
-        // Regression test for https://github.com/dotnet/winforms/issues/9833
-        // Resizing an editable ComboBox must not let the native ComboBox window procedure
-        // silently overwrite user-typed, uncommitted text with a matching list item's text.
         using ComboBox control = new()
         {
             DropDownStyle = ComboBoxStyle.DropDown
@@ -3354,24 +3358,71 @@ public class ComboBoxTests
         control.Items.AddRange(["blah321", "apple", "banana", "cherry"]);
         Assert.NotEqual(IntPtr.Zero, control.Handle);
 
-        control.Text = "bl";
-        control.SelectionStart = control.Text.Length;
-        control.SelectionLength = 0;
+        control.SelectedIndex = selectedIndex;
+        control.Text = text;
+        control.Select(start, length);
+        Assert.Equal(selectedIndex, control.SelectedIndex);
 
-        control.Width += 100;
+        if (changeTextOnResize)
+        {
+            control.Resize += (_, _) =>
+            {
+                control.Text = "custom";
+                control.Select(start, length);
+            };
+        }
 
-        Assert.Equal("bl", control.Text);
-        Assert.Equal(-1, control.SelectedIndex);
-        Assert.Equal(2, control.SelectionStart);
-        Assert.Equal(0, control.SelectionLength);
+        string expectedText = changeTextOnResize ? "custom" : text;
+        int[] widthChanges = [100, -100];
+
+        foreach (int delta in widthChanges)
+        {
+            control.Width += delta;
+
+            Assert.Equal(expectedText, control.Text);
+            Assert.Equal(selectedIndex, control.SelectedIndex);
+            Assert.Equal(start, control.SelectionStart);
+            Assert.Equal(length, control.SelectionLength);
+        }
+    }
+
+    [WinFormsTheory]
+    [InlineData(ComboBoxStyle.DropDown, 65536)]
+    [InlineData(ComboBoxStyle.DropDown, 70000)]
+    [InlineData(ComboBoxStyle.Simple, 65536)]
+    [InlineData(ComboBoxStyle.Simple, 70000)]
+    public void ComboBox_Resize_WithLongSelectedText_PreservesSelection(ComboBoxStyle dropDownStyle, int textLength)
+    {
+        string text = new('x', textLength);
+        using ComboBox control = new()
+        {
+            DropDownStyle = dropDownStyle,
+            MaxLength = int.MaxValue
+        };
+        control.Items.AddRange(["blah321", "apple"]);
+        Assert.NotEqual(IntPtr.Zero, control.Handle);
+
+        control.Text = text;
+        control.SelectAll();
+        Assert.Equal(0, control.SelectionStart);
+        Assert.Equal(textLength, control.SelectionLength);
+
+        int[] widthChanges = [100, -100];
+
+        foreach (int delta in widthChanges)
+        {
+            control.Width += delta;
+
+            Assert.Equal(text, control.Text);
+            Assert.Equal(-1, control.SelectedIndex);
+            Assert.Equal(0, control.SelectionStart);
+            Assert.Equal(textLength, control.SelectionLength);
+        }
     }
 
     [WinFormsFact]
     public void ComboBox_Resize_DropDownStyleWithSelectedItem_PreservesSelection()
     {
-        // Ensures the fix for https://github.com/dotnet/winforms/issues/9833 only restores
-        // uncommitted typed text (SelectedIndex == -1) and does not interfere with a
-        // legitimate, already-selected list item.
         using ComboBox control = new()
         {
             DropDownStyle = ComboBoxStyle.DropDown
