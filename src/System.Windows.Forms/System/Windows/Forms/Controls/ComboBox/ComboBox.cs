@@ -360,7 +360,9 @@ public partial class ComboBox : ListControl
             cp.Style |= (int)WINDOW_STYLE.WS_VSCROLL | PInvoke.CBS_HASSTRINGS | PInvoke.CBS_AUTOHSCROLL;
             cp.ExStyle |= (int)WINDOW_EX_STYLE.WS_EX_CLIENTEDGE;
 
-            if (!_integralHeight)
+            if (!_integralHeight
+                || (UsesModernComboAdapter
+                    && DropDownStyle == ComboBoxStyle.Simple))
             {
                 cp.Style |= PInvoke.CBS_NOINTEGRALHEIGHT;
             }
@@ -496,7 +498,7 @@ public partial class ComboBox : ListControl
 
                 // The dropDownHeight is not reflected unless the
                 // ComboBox integralHeight == false..
-                IntegralHeight = false;
+                SetIntegralHeightCore(value: false);
             }
         }
     }
@@ -618,13 +620,15 @@ public partial class ComboBox : ListControl
     public bool IntegralHeight
     {
         get => _integralHeight;
-        set
+        set => SetIntegralHeightCore(value);
+    }
+
+    private void SetIntegralHeightCore(bool value)
+    {
+        if (_integralHeight != value)
         {
-            if (_integralHeight != value)
-            {
-                _integralHeight = value;
-                RecreateHandle();
-            }
+            _integralHeight = value;
+            RecreateHandle();
         }
     }
 
@@ -2426,6 +2430,12 @@ public partial class ComboBox : ListControl
         bool hasComboBoxInfo = PInvoke.GetComboBoxInfo(
             HWND,
             ref comboBoxInfo);
+
+        if (hasComboBoxInfo)
+        {
+            ConfigureModernSimpleListSurface(comboBoxInfo.hwndList);
+        }
+
         if (Application.IsDarkModeEnabled)
         {
             // Style the ComboBox Open-Button:
@@ -2484,6 +2494,9 @@ public partial class ComboBox : ListControl
         _nativeComboHandleInitialized = false;
         _normalizingNativeComboBaseline = false;
         _modernComboLayoutWriteCount = 0;
+        _modernSimpleListClipRegionHandle = HWND.Null;
+        _modernSimpleListClipRegionSize = Size.Empty;
+        _modernSimpleListClipRegionApplyCount = 0;
         _dropDownHandle = HWND.Null;
         if (Disposing)
         {
@@ -2791,9 +2804,9 @@ public partial class ComboBox : ListControl
         {
             UpdateControl(true);
         }
-        else
+        else if (!GetState(States.CreatingHandle))
         {
-            // we always will recreate the handle when autocomplete mode is on
+            // DPI scaling can change the font during handle creation, before autocomplete is initialized.
             RecreateHandle();
         }
 
@@ -3450,6 +3463,19 @@ public partial class ComboBox : ListControl
         return $"{s}, Items.Count: {_itemsCollection?.Count ?? 0}";
     }
 
+    private int GetCalculatedDropDownHeight()
+    {
+        int height = DropDownHeight;
+        if (height == DefaultDropDownHeight)
+        {
+            int itemCount = (_itemsCollection is null) ? 0 : _itemsCollection.Count;
+            int count = Math.Min(Math.Max(itemCount, 1), _maxDropDownItems);
+            height = ItemHeight * count + 2;
+        }
+
+        return height;
+    }
+
     private void UpdateDropDownHeight()
     {
         if (_dropDownHandle.IsNull)
@@ -3458,13 +3484,7 @@ public partial class ComboBox : ListControl
         }
 
         // Now use the DropDownHeight property instead of calculating the Height...
-        int height = DropDownHeight;
-        if (height == DefaultDropDownHeight)
-        {
-            int itemCount = (_itemsCollection is null) ? 0 : _itemsCollection.Count;
-            int count = Math.Min(Math.Max(itemCount, 1), _maxDropDownItems);
-            height = ItemHeight * count + 2;
-        }
+        int height = GetCalculatedDropDownHeight();
 
         PInvoke.SetWindowPos(
             _dropDownHandle,
@@ -3743,14 +3763,11 @@ public partial class ComboBox : ListControl
     {
         switch (m.MsgInternal)
         {
-            // Modern VisualStyles: expand the client area to the full window so the drop-down
-            // button, which the themed ComboBox otherwise reserves as non-client (outside
-            // ClientRectangle), becomes part of the client and is covered by our rounded field.
-            // Simple combos have no drop-down button (their client already spans the full width
-            // and hosts a permanent list), so they must never be expanded.
+            // Modern VisualStyles: expand the client area to the full window so themed non-client
+            // reservations (for example the ComboBox-hosted scroll strip in Simple mode) are folded
+            // into client painting and can be normalized by modern layout.
             case PInvokeCore.WM_NCCALCSIZE:
                 if (UsesModernComboAdapter
-                    && DropDownStyle != ComboBoxStyle.Simple
                     && m.WParamInternal != 0u)
                 {
                     RECT* ncRects = (RECT*)(nint)m.LParamInternal;
@@ -3763,11 +3780,11 @@ public partial class ComboBox : ListControl
                 base.WndProc(ref m);
                 break;
 
-            // Modern VisualStyles: comctl32 still reports the drop-down button region as a
-            // non-client hit (HTVSCROLL) even though WM_NCCALCSIZE folded it into our client
-            // area, so a button click would arrive as WM_NCLBUTTONDOWN and never reach the
-            // WM_LBUTTONDOWN hit-test below. Force HTCLIENT across the expanded client so the
-            // button click is delivered as a normal client message we can act on.
+            // Modern VisualStyles: after WM_NCCALCSIZE expands the client area, comctl32 can still
+            // report the folded strip as non-client (HTVSCROLL). For editable/drop-down-list combos,
+            // force HTCLIENT across the expanded client so interaction remains consistent with modern
+            // layout. Keep native hit-testing for Simple to avoid interfering with the hosted list's
+            // always-visible scrollbar interactions.
             case PInvokeCore.WM_NCHITTEST:
                 base.WndProc(ref m);
                 if (UsesModernComboAdapter
