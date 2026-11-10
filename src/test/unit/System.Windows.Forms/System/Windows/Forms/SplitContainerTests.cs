@@ -681,6 +681,116 @@ public class SplitContainerTests
     }
 
     [WinFormsTheory]
+    [InlineData(Orientation.Horizontal)]
+    [InlineData(Orientation.Vertical)]
+    public void SplitContainer_Net11MouseMove_DoesNotExcessivelyInvalidateOrRepaintPanelContent(
+        Orientation orientation)
+    {
+        const int MaximumPaintCallsPerPanel = 8;
+        const int MaximumInvalidationsPerPanel = 8;
+        using Form form = new();
+        using SubSplitContainer control = new()
+        {
+            Dock = DockStyle.Fill,
+            Orientation = orientation,
+            Size = new Size(300, 300),
+            VisualStylesMode = VisualStylesMode.Net11
+        };
+        using PaintTrackingControl panel1Content = CreateNestedPaintTrackingControl(control.Panel1);
+        using PaintTrackingControl panel2Content = CreateNestedPaintTrackingControl(control.Panel2);
+        int splitContainerInvalidationCount = 0;
+        int panel1InvalidationCount = 0;
+        int panel2InvalidationCount = 0;
+        control.Invalidated += (_, _) => splitContainerInvalidationCount++;
+        panel1Content.Invalidated += (_, _) => panel1InvalidationCount++;
+        panel2Content.Invalidated += (_, _) => panel2InvalidationCount++;
+        form.Controls.Add(control);
+        form.Show();
+        Application.DoEvents();
+        panel1Content.ResetPaintCallCount();
+        panel2Content.ResetPaintCallCount();
+        splitContainerInvalidationCount = 0;
+        panel1InvalidationCount = 0;
+        panel2InvalidationCount = 0;
+
+        Rectangle splitterRectangle = control.SplitterRectangle;
+        int splitterX = splitterRectangle.Left + (splitterRectangle.Width / 2);
+        int splitterY = splitterRectangle.Top + (splitterRectangle.Height / 2);
+        int movedX = orientation == Orientation.Vertical ? splitterX + 10 : splitterX;
+        int movedY = orientation == Orientation.Horizontal ? splitterY + 10 : splitterY;
+
+        control.OnMouseDown(new MouseEventArgs(MouseButtons.Left, 1, splitterX, splitterY, 0));
+        control.OnMouseMove(new MouseEventArgs(MouseButtons.Left, 0, movedX, movedY, 0));
+        Application.DoEvents();
+
+        Assert.True(panel1Content.PaintCallCount > 0);
+        Assert.True(panel2Content.PaintCallCount > 0);
+        Assert.InRange(panel1Content.PaintCallCount, 1, MaximumPaintCallsPerPanel);
+        Assert.InRange(panel2Content.PaintCallCount, 1, MaximumPaintCallsPerPanel);
+        Assert.InRange(splitContainerInvalidationCount, 0, MaximumInvalidationsPerPanel);
+        Assert.InRange(panel1InvalidationCount, 0, MaximumInvalidationsPerPanel);
+        Assert.InRange(panel2InvalidationCount, 0, MaximumInvalidationsPerPanel);
+    }
+
+    [WinFormsTheory]
+    [InlineData(Orientation.Horizontal)]
+    [InlineData(Orientation.Vertical)]
+    public void SplitContainer_Net11MouseMove_ReentrantPaintLayoutCompletesWithCorrectLayout(
+        Orientation orientation)
+    {
+        using Form form = new()
+        {
+            ClientSize = new Size(300, 300)
+        };
+        using SubSplitContainer control = new()
+        {
+            Dock = DockStyle.Fill,
+            Orientation = orientation,
+            Size = new Size(300, 300),
+            VisualStylesMode = VisualStylesMode.Net11
+        };
+        using PaintTrackingControl panel1Content = CreateNestedPaintTrackingControl(control.Panel1);
+        using PaintTrackingControl panel2Content = CreateNestedPaintTrackingControl(control.Panel2);
+        form.Controls.Add(control);
+        form.Show();
+        Application.DoEvents();
+
+        bool performedReentrantLayout = false;
+        panel1Content.Paint += (_, _) =>
+        {
+            if (!performedReentrantLayout)
+            {
+                performedReentrantLayout = true;
+                control.PerformLayout();
+            }
+        };
+
+        int initialSplitterDistance = control.SplitterDistance;
+        Rectangle splitterRectangle = control.SplitterRectangle;
+        int splitterX = splitterRectangle.Left + (splitterRectangle.Width / 2);
+        int splitterY = splitterRectangle.Top + (splitterRectangle.Height / 2);
+        int movedX = orientation == Orientation.Vertical ? splitterX + 10 : splitterX;
+        int movedY = orientation == Orientation.Horizontal ? splitterY + 10 : splitterY;
+
+        control.OnMouseDown(new MouseEventArgs(MouseButtons.Left, 1, splitterX, splitterY, 0));
+        control.OnMouseMove(new MouseEventArgs(MouseButtons.Left, 0, movedX, movedY, 0));
+        Application.DoEvents();
+
+        Assert.True(performedReentrantLayout);
+        Assert.Equal(initialSplitterDistance + 10, control.SplitterDistance);
+        Assert.Equal(
+            initialSplitterDistance + 10,
+            orientation == Orientation.Vertical ? control.Panel1.Width : control.Panel1.Height);
+        Assert.Equal(
+            300 - initialSplitterDistance - 10 - control.SplitterWidth,
+            orientation == Orientation.Vertical ? control.Panel2.Width : control.Panel2.Height);
+        Assert.True(panel1Content.PaintCallCount > 0);
+        Assert.True(panel2Content.PaintCallCount > 0);
+
+        control.OnMouseUp(new MouseEventArgs(MouseButtons.Left, 1, movedX, movedY, 0));
+    }
+
+    [WinFormsTheory]
     [InlineData(Orientation.Horizontal, VisualStylesMode.Net11, RightToLeft.No)]
     [InlineData(Orientation.Horizontal, VisualStylesMode.Net11, RightToLeft.Yes)]
     [InlineData(Orientation.Vertical, VisualStylesMode.Net11, RightToLeft.No)]
